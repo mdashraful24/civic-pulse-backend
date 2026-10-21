@@ -9,8 +9,7 @@
 		"ignoreUnknown": false,
 		"includes": [
 			"**",
-			"!src/generated",
-			"!src/app/templates"
+			"!generated"
 		]
 	},
 	"formatter": {
@@ -37,8 +36,7 @@
 		},
 		"includes": [
 			"**",
-			"!src/generated",
-			"!src/app/templates"
+			"!generated"
 		]
 	},
 	"javascript": {

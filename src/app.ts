@@ -1,13 +1,49 @@
-import express, {
-    type Application,
-    type Request,
-    type Response,
-} from "express";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import express from "express";
+import helmet from "helmet";
+import httpStatus from "http-status";
+import config from "./app/config";
+import {
+	globalErrorHandler,
+	notFound,
+} from "./app/middlewares/globalErrorHandler";
+import { AuthRoutes } from "./app/modules/auth/auth.route";
 
-const app: Application = express();
+const app = express();
 
-app.get("/", (req: Request, res: Response) => {
-    res.send("Hello, World!");
+if (config.trust_proxy > 0) {
+	app.set("trust proxy", config.trust_proxy);
+}
+
+app.disable("x-powered-by");
+
+app.use(helmet());
+
+app.use(
+	cors({
+		origin: config.frontend_url,
+		credentials: true,
+		methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+	}),
+);
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+app.use(cookieParser());
+
+app.get("/health", (_req, res) => {
+	res.status(httpStatus.OK).json({
+		success: true,
+		statusCode: httpStatus.OK,
+		message: "CivicPulse API is running.",
+		data: { uptime: Math.round(process.uptime()) },
+	});
 });
+
+app.use(`${config.api_prefix}/auth`, AuthRoutes);
+
+app.use(notFound);
+app.use(globalErrorHandler);
 
 export default app;

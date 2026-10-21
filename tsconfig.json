@@ -7,8 +7,9 @@
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src", "prisma.config.ts", "src/server.ts"],
+  "include": ["src", "prisma", "prisma7.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
