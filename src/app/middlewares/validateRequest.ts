@@ -37,6 +37,38 @@ export const validateBody =
 		next();
 	};
 
+export const parseJsonBodyField =
+	(field = "body") =>
+	(req: Request, _res: Response, next: NextFunction) => {
+		const value = (req.body as Record<string, unknown> | undefined)?.[field];
+
+		if (typeof value !== "string") {
+			next();
+			return;
+		}
+
+		try {
+			const parsed: unknown = JSON.parse(value);
+
+			if (
+				parsed === null ||
+				typeof parsed !== "object" ||
+				Array.isArray(parsed)
+			) {
+				throw new Error("not an object");
+			}
+
+			req.body = parsed;
+			next();
+		} catch {
+			next(
+				AppError.badRequest(
+					`The '${field}' field must be a JSON object, for example {"name": "...", "email": "...", "password": "..."}.`,
+				),
+			);
+		}
+	};
+
 export const validateQuery =
 	<T>(schema: ZodType<T>) =>
 	(req: Request, _res: Response, next: NextFunction) => {

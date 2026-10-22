@@ -1,6 +1,8 @@
+import { seedIssues } from "../prisma/all-seeds/issues.seed";
 import { seedUsers } from "../prisma/all-seeds/seed";
 import app from "./app";
 import config, { assertRuntimeConfig } from "./app/config";
+import { isCloudinaryConfigured } from "./app/lib/cloudinary";
 import { isEmailConfigured, transporter } from "./app/lib/nodemailer";
 import { prisma } from "./app/lib/prisma";
 import { connectRedis } from "./app/lib/redis";
@@ -36,8 +38,15 @@ const start = async () => {
 		);
 	}
 
+	if (!isCloudinaryConfigured) {
+		console.warn(
+			"Cloudinary is not configured. Issue image uploads will return 503.",
+		);
+	}
+
 	if (config.seed_on_start) {
 		const { created, existing } = await seedUsers();
+		const issues = await seedIssues();
 
 		if (created.length > 0) {
 			console.log(`Seeded ${created.length} demo account(s):`);
@@ -47,6 +56,12 @@ const start = async () => {
 		} else if (existing.length > 0) {
 			console.log(`Demo accounts already present (${existing.length}).`);
 		}
+
+		if (issues.created > 0) {
+			console.log(`Seeded ${issues.created} demo issue(s).`);
+		} else if (issues.existing > 0) {
+			console.log(`Demo issues already present (${issues.existing}).`);
+		}
 	}
 
 	const server = app.listen(config.port, () => {
@@ -55,6 +70,8 @@ const start = async () => {
 		);
 		console.log("  health  GET /health");
 		// console.log(`  auth    ${config.api_prefix}/auth`);
+		// console.log(`  issues  ${config.api_prefix}/issues`);
+		// console.log(`  stats   ${config.api_prefix}/dashboard/stats`);
 	});
 
 	let shuttingDown = false;

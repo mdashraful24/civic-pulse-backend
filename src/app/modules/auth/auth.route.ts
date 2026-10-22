@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { upload } from "../../lib/multer";
 import { requireAuth } from "../../middlewares/auth";
 import {
 	authLimiter,
@@ -6,7 +7,10 @@ import {
 	otpLimiter,
 	registerLimiter,
 } from "../../middlewares/rateLimit";
-import { validateBody } from "../../middlewares/validateRequest";
+import {
+	parseJsonBodyField,
+	validateBody,
+} from "../../middlewares/validateRequest";
 import { AuthController } from "./auth.controller";
 import {
 	changePasswordSchema,
@@ -22,6 +26,8 @@ router.post(
 	"/register",
 	authLimiter,
 	registerLimiter,
+	upload.single("image"),
+	parseJsonBodyField("body"),
 	validateBody(registerSchema),
 	AuthController.register,
 );
@@ -55,6 +61,13 @@ router.post("/refresh-token", authLimiter, AuthController.refresh);
 router.post("/logout", authLimiter, AuthController.logout);
 
 router.get("/me", requireAuth, AuthController.me);
+
+router.patch(
+	"/me/image",
+	requireAuth,
+	upload.single("image"),
+	AuthController.updateImage,
+);
 
 router.post(
 	"/change-password",

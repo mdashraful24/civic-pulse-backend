@@ -6,6 +6,9 @@ model User {
 
   passwordHash String
 
+  imageUrl      String?
+  imagePublicId String?
+
   role   Role       @default(CITIZEN)
   status UserStatus @default(ACTIVE)
 
@@ -23,6 +26,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   sessions Session[]
+
+  reportedIssues Issue[]        @relation("ReportedIssues")
+  assignedIssues Issue[]        @relation("AssignedIssues")
+  issueChanges   IssueHistory[] @relation("IssueChanges")
 
   @@index([role])
   @@index([status])

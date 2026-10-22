@@ -4,6 +4,7 @@ export const PUBLIC_USER_SELECT = {
 	id: true,
 	name: true,
 	email: true,
+	imageUrl: true,
 	role: true,
 	status: true,
 	emailVerified: true,
@@ -40,6 +41,8 @@ export type PendingRegistration = {
 	name: string;
 	email: string;
 	passwordHash: string;
+	imageUrl: string | null;
+	imagePublicId: string | null;
 };
 
 export type RegistrationOtpResult = {

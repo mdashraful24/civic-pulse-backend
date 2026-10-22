@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import httpStatus from "http-status";
 import { currentUser } from "../../middlewares/auth";
+import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
 import {
 	clearAuthCookies,
@@ -23,7 +24,10 @@ const sessionContext = (req: Pick<Request, "get" | "ip">) => ({
 });
 
 const register = catchAsync(async (req, res) => {
-	const result = await AuthService.register(req.body as RegisterInput);
+	const result = await AuthService.register(
+		req.body as RegisterInput,
+		req.file?.buffer,
+	);
 
 	sendResponse(res, {
 		statusCode: httpStatus.CREATED,
@@ -112,6 +116,26 @@ const me = catchAsync(async (req, res) => {
 	});
 });
 
+const updateImage = catchAsync(async (req, res) => {
+	if (!req.file) {
+		throw AppError.badRequest(
+			"No image uploaded. Send a JPEG, PNG, WebP or GIF file in the 'image' field.",
+		);
+	}
+
+	const user = await AuthService.updateImage(
+		currentUser(req).id,
+		req.file.buffer,
+	);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Profile photo uploaded successfully.",
+		data: user,
+	});
+});
+
 const changePassword = catchAsync(async (req, res) => {
 	await AuthService.changePassword(
 		currentUser(req).id,
@@ -136,5 +160,6 @@ export const AuthController = {
 	refresh,
 	logout,
 	me,
+	updateImage,
 	changePassword,
 };

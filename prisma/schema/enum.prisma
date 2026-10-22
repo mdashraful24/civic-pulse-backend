@@ -9,3 +9,23 @@ enum UserStatus {
   BLOCKED
   DELETED
 }
+
+enum IssueCategory {
+  ROADS
+  STREETLIGHTS
+  WATER
+  WASTE
+  OTHER
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum IssueStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+}

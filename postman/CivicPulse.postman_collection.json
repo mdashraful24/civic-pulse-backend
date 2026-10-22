@@ -2,18 +2,78 @@
   "info": {
     "_postman_id": "b934ca25-8de3-4c32-8e0c-8828ee1a5222",
     "name": "CivicPulse API",
-    "description": "Authentication endpoints for the CivicPulse backend.\n\nRegistration is a two-step flow: POST /register emails a 6-digit OTP, then POST /verify-email confirms it and creates the account. In development, when SMTP is not configured, the OTP is printed to the API console.\n\nTokens are issued as HttpOnly cookies, so Postman's cookie jar handles authentication automatically after a successful login. No manual token copying is needed.\n\nSet `baseUrl` in the collection variables (default http://localhost:5000).",
+    "description": "Authentication, issue reporting, issue workflow, dashboard and admin endpoints for the CivicPulse backend.\n\nTokens are issued as HttpOnly cookies, so Postman handles authentication automatically after a login request. Run the folders in order: Auth, Public Issues, Citizen, Admin, Personnel, Cleanup. Logins are kept to one per role switch because each login replaces the active cookie session.\n\nRegister and create-issue each have two variants. Use the raw JSON request when there is no file. To send a file, use the multipart request: one text field named `body` holding the JSON object, plus a File field named `image`. Example body value: {\"name\":\"Ayesha Rahman\",\"email\":\"{{registerEmail}}\",\"password\":\"Str0ngPass1\"}.\n\nRegistration is two steps: the register request emails a 6-digit OTP, then `Verify email (OTP)` creates the account. In development the OTP is printed in the API console; paste it into the `otp` collection variable first. registerEmail uses {{$timestamp}} so re-runs do not collide.\n\nImages go to Cloudinary as multipart `image` files, max 5 MB (JPEG, PNG, WebP or GIF): profile photo at PATCH /api/auth/me/image, issue photo at PATCH /api/issues/:id/image, and admin-managed user photos at PATCH /api/admin/users/:id/image.\n\nFolders after Auth reuse the `userId`, `issueId` and `personnelId` set by earlier requests, so run top to bottom for a full green run.\n\nSet `baseUrl` in the collection variables (default http://localhost:5000).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "54687734",
     "_collection_link": "https://go.postman.co/collection/54687734-b934ca25-8de3-4c32-8e0c-8828ee1a5222?source=collection_link"
   },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "citizenEmail",
+      "value": "citizen@civicpulse.local"
+    },
+    {
+      "key": "citizenPassword",
+      "value": "Citizen@12345"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@civicpulse.local"
+    },
+    {
+      "key": "adminPassword",
+      "value": "Admin@12345"
+    },
+    {
+      "key": "personnelEmail",
+      "value": "personnel@civicpulse.local"
+    },
+    {
+      "key": "personnelPassword",
+      "value": "Personnel@12345"
+    },
+    {
+      "key": "registerEmail",
+      "value": "civicpulse.demo.{{$timestamp}}@example.com",
+      "description": "Unique per run. Uses the Postman {{$timestamp}} dynamic variable so re-running Register does not hit 409 Already exists. Override with your own address if you want to receive the real OTP email."
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "issueId",
+      "value": ""
+    },
+    {
+      "key": "personnelId",
+      "value": ""
+    },
+    {
+      "key": "otp",
+      "value": "123456"
+    }
+  ],
   "item": [
     {
       "name": "Auth",
       "item": [
         {
-          "name": "Register (citizen)",
+          "name": "Register (citizen, JSON)",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('registerEmail', `ayesha+${Date.now()}@example.com`);"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -35,7 +95,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Ayesha Rahman\",\n  \"email\": \"ayesha@example.com\",\n  \"password\": \"Str0ngPass\"\n}"
+              "raw": "{\n  \"name\": \"Ayesha Rahman\",\n  \"email\": \"{{registerEmail}}\",\n  \"password\": \"Str0ngPass1\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/register",
@@ -52,42 +112,49 @@
           "response": []
         },
         {
-          "name": "Verify email (OTP)",
+          "name": "Register (citizen, body + image)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('verified', () => pm.response.to.have.status(201));",
-                  "pm.test('email is verified', () => pm.expect(pm.response.json().data.emailVerified).to.eql(true));"
+                  "pm.test('created', () => pm.response.to.have.status(201));",
+                  "pm.test('otp sent', () => pm.expect(pm.response.json().data.expiresIn).to.be.a('number'));"
                 ]
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"ayesha@example.com\",\n  \"otp\": \"123456\"\n}"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"name\": \"Ayesha Rahman\",\n  \"email\": \"{{registerEmail}}\",\n  \"password\": \"Str0ngPass1\"\n}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
             },
             "url": {
-              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "raw": "{{baseUrl}}/api/auth/register",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "auth",
-                "verify-email"
+                "register"
               ]
-            }
+            },
+            "description": "Multipart register: the whole account object goes in one text field named `body` as JSON, and the optional picture is a File field named `image` (JPEG, PNG, WebP or GIF, max 5 MB). Drop the `image` row to register without a photo. The photo uploads to Cloudinary and is attached to the account when the OTP is verified."
           },
           "response": []
         },
@@ -114,7 +181,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ayesha@example.com\"\n}"
+              "raw": "{\n  \"email\": \"{{registerEmail}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/resend-otp",
@@ -131,17 +198,16 @@
           "response": []
         },
         {
-          "name": "Login",
+          "name": "Verify email (OTP)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('logged in', () => pm.response.to.have.status(200));",
-                  "const body = pm.response.json();",
-                  "pm.collectionVariables.set('userId', body.data.id);",
-                  "pm.test('auth cookie set', () => pm.cookies.has('cp_access_token'));"
+                  "pm.test('verified', () => pm.response.to.have.status(201));",
+                  "pm.test('message returned', () => pm.expect(pm.response.json().message).to.include('verified'));",
+                  "pm.test('no user data leaked', () => pm.expect(pm.response.json()).to.not.have.property('data'));"
                 ]
               }
             }
@@ -156,7 +222,50 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"email\": \"{{registerEmail}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-email"
+              ]
+            }
+          },
+          "response": [],
+          "description": "Copy the 6-digit code from the API console (development) or email, set the `otp` collection variable, then send."
+        },
+        {
+          "name": "Login (new account)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('new account logged in', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('userId', body.data.id);",
+                  "pm.test('imageUrl field present', () => pm.expect(body.data).to.have.property('imageUrl'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{registerEmail}}\",\n  \"password\": \"Str0ngPass1\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -168,7 +277,8 @@
                 "auth",
                 "login"
               ]
-            }
+            },
+            "description": "Logs in as the account created by the registration flow above. Requires the OTP in the `otp` variable to be correct."
           },
           "response": []
         },
@@ -180,7 +290,10 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('authorised', () => pm.response.to.have.status(200));"
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('has role', () => pm.expect(body.data).to.have.property('role'));",
+                  "pm.test('has imageUrl field', () => pm.expect(body.data).to.have.property('imageUrl'));"
                 ]
               }
             }
@@ -198,7 +311,52 @@
                 "auth",
                 "me"
               ]
+            },
+            "description": "Returns the current profile, including `imageUrl` (null until a photo is uploaded)."
+          },
+          "response": []
+        },
+        {
+          "name": "Upload profile photo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('uploaded', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('profile image url returned', () => pm.expect(body.data.imageUrl).to.match(/^https?:///));"
+                ]
+              }
             }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me",
+                "image"
+              ]
+            },
+            "description": "Select a JPEG, PNG, WebP or GIF file (max 5 MB) in the `image` form-data field. Works for every logged-in role and replaces the previous photo. The file is uploaded to Cloudinary and the secure URL is stored in `imageUrl`."
           },
           "response": []
         },
@@ -234,6 +392,17 @@
         },
         {
           "name": "Change password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('changed', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -244,7 +413,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"currentPassword\": \"Admin@12345\",\n  \"newPassword\": \"NewAdmin@12345\"\n}"
+              "raw": "{\n  \"currentPassword\": \"Str0ngPass1\",\n  \"newPassword\": \"Str0ngPass2\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/change-password",
@@ -256,9 +425,11 @@
                 "auth",
                 "change-password"
               ]
-            }
+            },
+            "description": "Changes the currently logged-in account password and revokes all sessions. Adjust the body before running this request."
           },
-          "response": []
+          "response": [],
+          "description": "Changes the password of the newly registered test account only, so demo accounts are never modified."
         },
         {
           "name": "Logout",
@@ -293,43 +464,1167 @@
       ]
     },
     {
-      "name": "Health",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/health",
-          "host": [
-            "{{baseUrl}}"
+      "name": "Public Issues",
+      "item": [
+        {
+          "name": "List issues (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('list returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('meta returned', () => pm.expect(body.meta).to.have.property('total'));",
+                  "if (body.data.length > 0) { pm.collectionVariables.set('issueId', body.data[0].id); }"
+                ]
+              }
+            }
           ],
-          "path": [
-            "health"
-          ]
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter issues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('only pending roads', () => body.data.forEach((issue) => { pm.expect(issue.status).to.eql('PENDING'); pm.expect(issue.category).to.eql('ROADS'); }));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues?status=PENDING&category=ROADS&priority=HIGH&search=pothole&sort=oldest&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "category",
+                  "value": "ROADS"
+                },
+                {
+                  "key": "priority",
+                  "value": "HIGH"
+                },
+                {
+                  "key": "search",
+                  "value": "pothole"
+                },
+                {
+                  "key": "sort",
+                  "value": "oldest"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "pm.test('id matches', () => pm.expect(pm.response.json().data.id).to.eql(pm.collectionVariables.get('issueId')));",
+                  "pm.test('reporter email hidden', () => pm.expect(pm.response.json().data.reporter).to.not.have.property('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Issue history",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "pm.test('history returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "history"
+              ]
+            }
+          },
+          "response": []
         }
-      },
-      "response": []
-    }
-  ],
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:5000"
+      ]
     },
     {
-      "key": "api_prefix",
-      "value": ""
+      "name": "Citizen",
+      "item": [
+        {
+          "name": "Login (citizen)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged in', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('user returned', () => pm.expect(body.data).to.have.property('id'));",
+                  "pm.collectionVariables.set('userId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{citizenEmail}}\",\n  \"password\": \"{{citizenPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('pending', () => pm.expect(body.data.status).to.eql('PENDING'));",
+                  "pm.test('reporter email hidden', () => pm.expect(body.data.reporter).to.not.have.property('email'));",
+                  "pm.collectionVariables.set('issueId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Broken streetlight near the library\",\n  \"description\": \"The streetlight outside the public library has been off for three nights, leaving the crossing dark.\",\n  \"category\": \"STREETLIGHTS\",\n  \"location\": \"Library entrance, Civic Avenue\",\n  \"imageUrl\": \"https://picsum.photos/seed/civicpulse-streetlight/800/600\",\n  \"priority\": \"HIGH\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create issue (body + image)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('pending', () => pm.expect(body.data.status).to.eql('PENDING'));",
+                  "pm.collectionVariables.set('issueId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"title\": \"Broken streetlight near the library\",\n  \"description\": \"The streetlight outside the public library has been off for three nights, leaving the crossing dark.\",\n  \"category\": \"STREETLIGHTS\",\n  \"location\": \"Library entrance, Civic Avenue\",\n  \"priority\": \"HIGH\"\n}",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues"
+              ]
+            },
+            "description": "Multipart issue report: the issue fields go in one text field named `body` as JSON, and the optional photo is a File field named `image` (max 5 MB). Drop the `image` row to report without a photo."
+          },
+          "response": []
+        },
+        {
+          "name": "My issues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "pm.test('list returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/me?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "me"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('updated', () => pm.response.to.have.status(200));",
+                  "pm.test('title changed', () => pm.expect(pm.response.json().data.title).to.include('library'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Broken streetlight outside the library\",\n  \"location\": \"Library main entrance, Civic Avenue\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload issue photo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('uploaded', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('image url returned', () => pm.expect(body.data.imageUrl).to.be.a('string'));",
+                  "pm.test('image url is https', () => pm.expect(body.data.imageUrl).to.match(/^https?:///));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "image"
+              ]
+            },
+            "description": "Select a JPEG, PNG, WebP or GIF file (max 5 MB) in the `image` form-data field. The file is uploaded to Cloudinary and the returned secure URL is saved on the issue. Owners can change photos only while the issue is pending; admins can change any issue photo."
+          },
+          "response": []
+        },
+        {
+          "name": "Issues (public, with reporter photo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('list returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('reporter photo hidden when absent, url when present', () => {",
+                  "  for (const issue of body.data) {",
+                  "    pm.expect(issue.reporter).to.not.have.property('email');",
+                  "    if (Object.hasOwn(issue.reporter, 'imageUrl')) pm.expect(issue.reporter.imageUrl).to.be.a('string');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues?page=1&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Public issue reads include the reporter and assignee `name` and `imageUrl` (when they have one) but never their email address."
+          },
+          "response": []
+        },
+        {
+          "name": "Citizen stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('own scope', () => pm.expect(body.data.scope).to.eql('OWN'));",
+                  "pm.test('counts returned', () => pm.expect(body.data).to.have.all.keys('scope', 'total', 'pending', 'inProgress', 'resolved', 'highPriority', 'statusDistribution', 'recentIssues'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin route forbidden for citizen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "key": "email",
-      "value": "admin@civicpulse.local"
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Login (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged in', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('user returned', () => pm.expect(body.data).to.have.property('id'));",
+                  "pm.collectionVariables.set('userId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('list returned', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('every user has imageUrl field', () => { for (const u of body.data) pm.expect(u).to.have.property('imageUrl'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Replace user photo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('uploaded', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('image url returned', () => pm.expect(body.data.imageUrl).to.match(/^https?:///));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "{{userId}}",
+                "image"
+              ]
+            },
+            "description": "Admin replaces any user's Cloudinary photo. Send a JPEG, PNG, WebP or GIF file (max 5 MB) in the `image` field. Targets the account created in the Auth folder via the `userId` variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove user photo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('removed', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/image",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "{{userId}}",
+                "image"
+              ]
+            },
+            "description": "Admin clears `imageUrl` and deletes the file from Cloudinary."
+          },
+          "response": []
+        },
+        {
+          "name": "List personnel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('only personnel', () => body.data.forEach((user) => pm.expect(user.role).to.eql('PERSONNEL')));",
+                  "if (body.data.length > 0) { pm.collectionVariables.set('personnelId', body.data[0].id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?role=PERSONNEL&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "PERSONNEL"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users?search=civicpulse&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "civicpulse"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('assigned', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('assignee set', () => pm.expect(body.data.assignee.id).to.eql(pm.collectionVariables.get('personnelId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"personnelId\": \"{{personnelId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "assign"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change priority",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('priority changed', () => pm.response.to.have.status(200));",
+                  "pm.test('high priority', () => pm.expect(pm.response.json().data.priority).to.eql('HIGH'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": \"HIGH\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/priority",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "priority"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change status to in progress",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status changed', () => pm.response.to.have.status(200));",
+                  "pm.test('in progress', () => pm.expect(pm.response.json().data.status).to.eql('IN_PROGRESS'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin stats",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('all scope', () => pm.expect(body.data.scope).to.eql('ALL'));",
+                  "pm.test('status distribution', () => pm.expect(body.data.statusDistribution).to.have.all.keys('PENDING', 'IN_PROGRESS', 'RESOLVED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "key": "password",
-      "value": "Admin@12345"
+      "name": "Personnel",
+      "item": [
+        {
+          "name": "Login (personnel)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged in', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('user returned', () => pm.expect(body.data).to.have.property('id'));",
+                  "pm.collectionVariables.set('userId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{personnelEmail}}\",\n  \"password\": \"{{personnelPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assigned issues",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.response.to.have.status(200));",
+                  "pm.test('list returned', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/assigned?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "assigned"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('resolved', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('resolved status', () => pm.expect(body.data.status).to.eql('RESOLVED'));",
+                  "pm.test('resolved timestamp', () => pm.expect(body.data.resolvedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"RESOLVED\",\n  \"resolutionNote\": \"Lamp replaced and the crossing is lit again.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     },
     {
-      "key": "userId",
-      "value": ""
+      "name": "Cleanup",
+      "item": [
+        {
+          "name": "Login (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged in', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('user returned', () => pm.expect(body.data).to.have.property('id'));",
+                  "pm.collectionVariables.set('userId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete issue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('deleted', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/issues/{{issueId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "issues",
+                "{{issueId}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

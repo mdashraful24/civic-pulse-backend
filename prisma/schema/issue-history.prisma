@@ -1,0 +1,19 @@
+model IssueHistory {
+  id String @id @default(uuid())
+
+  issueId String
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  changedById String
+  changedBy   User   @relation("IssueChanges", fields: [changedById], references: [id], onDelete: Restrict)
+
+  oldStatus IssueStatus?
+  newStatus IssueStatus
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([issueId, createdAt])
+  @@map("issue_history")
+}

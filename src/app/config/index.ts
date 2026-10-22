@@ -69,6 +69,10 @@ const config = {
 	smtp_password: optional("SMTP_PASSWORD", ""),
 	email_sender: optional("EMAIL_SENDER", ""),
 
+	cloudinary_cloud_name: optional("CLOUDINARY_CLOUD_NAME", ""),
+	cloudinary_api_key: optional("CLOUDINARY_API_KEY", ""),
+	cloudinary_api_secret: optional("CLOUDINARY_API_SECRET", ""),
+
 	otp_expires_in_seconds: optionalNumber("OTP_EXPIRES_IN_SECONDS", 120),
 	registration_session_expires_in_seconds: optionalNumber(
 		"REGISTRATION_SESSION_EXPIRES_IN_SECONDS",
@@ -154,6 +158,22 @@ export const assertRuntimeConfig = () => {
 
 	if (!Number.isInteger(config.redis_port) || config.redis_port <= 0) {
 		throw new Error("REDIS_PORT must be a positive integer.");
+	}
+
+	const cloudinaryValues = [
+		config.cloudinary_cloud_name,
+		config.cloudinary_api_key,
+		config.cloudinary_api_secret,
+	];
+	const configuredCloudinaryValues = cloudinaryValues.filter(Boolean).length;
+
+	if (
+		configuredCloudinaryValues > 0 &&
+		configuredCloudinaryValues < cloudinaryValues.length
+	) {
+		throw new Error(
+			"CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET must be set together.",
+		);
 	}
 
 	if (isProduction) {

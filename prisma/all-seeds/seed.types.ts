@@ -6,9 +6,16 @@ export type SeedAccount = {
 	email: string;
 	password: string;
 	role: Role;
+	imageUrl: string | null;
 };
 
 export type SeedResult = {
 	created: SeedAccount[];
 	existing: SeedAccount[];
+};
+
+export type SeedIssuesResult = {
+	created: number;
+	existing: number;
+	skipped: number;
 };

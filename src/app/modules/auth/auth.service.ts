@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { Prisma } from "../../../../generated/prisma/client";
 import config from "../../config";
+import {
+	deleteCloudinaryImage,
+	uploadImageToCloudinary,
+} from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
@@ -114,6 +118,7 @@ const buildSessionData = (
 
 const register = async (
 	payload: RegisterPayload,
+	imageBuffer?: Buffer,
 ): Promise<RegistrationOtpResult> => {
 	const email = normalizeEmail(payload.email);
 	const name = payload.name.trim();
@@ -131,23 +136,38 @@ const register = async (
 
 	const passwordHash = await hashPassword(payload.password);
 
+	const uploaded = imageBuffer
+		? await uploadImageToCloudinary(imageBuffer, "civicpulse/users")
+		: null;
+
 	assertRedisAvailable();
 
 	const otp = generateOtp();
 	const expiry = otpExpiry();
 
-	await redisClient.set(otpKey(email), otp, {
-		expiration: { type: "EX", value: expiry.seconds },
-	});
+	const pending: PendingRegistration = {
+		name,
+		email,
+		passwordHash,
+		imageUrl: uploaded?.secure_url ?? null,
+		imagePublicId: uploaded?.public_id ?? null,
+	};
 
-	const pending: PendingRegistration = { name, email, passwordHash };
+	try {
+		await redisClient.set(otpKey(email), otp, {
+			expiration: { type: "EX", value: expiry.seconds },
+		});
 
-	await redisClient.set(registrationKey(email), JSON.stringify(pending), {
-		expiration: {
-			type: "EX",
-			value: config.registration_session_expires_in_seconds,
-		},
-	});
+		await redisClient.set(registrationKey(email), JSON.stringify(pending), {
+			expiration: {
+				type: "EX",
+				value: config.registration_session_expires_in_seconds,
+			},
+		});
+	} catch (error) {
+		await deleteCloudinaryImage(uploaded?.public_id ?? null);
+		throw error;
+	}
 
 	await sendRegistrationOtpEmail({
 		to: email,
@@ -223,6 +243,8 @@ const verifyEmail = async (payload: VerifyEmailPayload): Promise<void> => {
 			data: {
 				name: pending.name,
 				passwordHash: pending.passwordHash,
+				imageUrl: pending.imageUrl ?? null,
+				imagePublicId: pending.imagePublicId ?? null,
 				emailVerified: true,
 				emailVerifiedAt: new Date(),
 				status: "ACTIVE",
@@ -237,7 +259,8 @@ const verifyEmail = async (payload: VerifyEmailPayload): Promise<void> => {
 					name: pending.name,
 					email,
 					passwordHash: pending.passwordHash,
-
+					imageUrl: pending.imageUrl ?? null,
+					imagePublicId: pending.imagePublicId ?? null,
 					role: "CITIZEN",
 					emailVerified: true,
 					emailVerifiedAt: new Date(),
@@ -492,6 +515,42 @@ const me = async (userId: string): Promise<PublicUser> => {
 	return user;
 };
 
+const updateImage = async (
+	userId: string,
+	buffer: Buffer,
+): Promise<PublicUser> => {
+	const current = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { imagePublicId: true },
+	});
+
+	if (!current) {
+		throw AppError.unauthorized("This account is no longer available.");
+	}
+
+	const uploaded = await uploadImageToCloudinary(buffer, "civicpulse/users");
+
+	let updated: PublicUser;
+
+	try {
+		updated = await prisma.user.update({
+			where: { id: userId },
+			data: {
+				imageUrl: uploaded.secure_url,
+				imagePublicId: uploaded.public_id,
+			},
+			select: PUBLIC_USER_SELECT,
+		});
+	} catch (error) {
+		await deleteCloudinaryImage(uploaded.public_id);
+		throw error;
+	}
+
+	await deleteCloudinaryImage(current.imagePublicId);
+
+	return updated;
+};
+
 const changePassword = async (
 	userId: string,
 	payload: ChangePasswordPayload,
@@ -536,5 +595,6 @@ export const AuthService = {
 	refresh,
 	logout,
 	me,
+	updateImage,
 	changePassword,
 };

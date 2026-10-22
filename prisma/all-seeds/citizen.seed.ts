@@ -7,4 +7,5 @@ export const citizenSeed = (): SeedAccount => ({
 	email: config.seed_citizen_email,
 	password: config.seed_citizen_password,
 	role: "CITIZEN",
+	imageUrl: "https://picsum.photos/seed/civicpulse-citizen/256/256",
 });

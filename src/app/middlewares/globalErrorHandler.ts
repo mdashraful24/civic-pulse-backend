@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import httpStatus from "http-status";
+import multer from "multer";
 import { ZodError } from "zod";
 import { Prisma } from "../../../generated/prisma/client";
 import config from "../config";
@@ -80,6 +81,18 @@ export const globalErrorHandler: ErrorRequestHandler = (
 	} else if (err instanceof Prisma.PrismaClientInitializationError) {
 		statusCode = httpStatus.SERVICE_UNAVAILABLE;
 		message = "The database is currently unavailable.";
+	} else if (err instanceof multer.MulterError) {
+		statusCode = httpStatus.BAD_REQUEST;
+
+		if (err.code === "LIMIT_FILE_SIZE") {
+			message = "Image must be 5 MB or smaller.";
+		} else if (err.code === "LIMIT_UNEXPECTED_FILE") {
+			message = "Unexpected file field. Send one image in the 'image' field.";
+		} else {
+			message = "The image could not be uploaded.";
+		}
+
+		errors = [{ field: err.field ?? "image", message }];
 	} else if (
 		err instanceof SyntaxError &&
 		"body" in err &&
