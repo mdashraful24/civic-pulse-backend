@@ -87,7 +87,7 @@ const listUsers = async (query: AdminUsersQuery) => {
 		];
 	}
 
-	const [items, total] = await prisma.$transaction([
+	const [items, total] = await Promise.all([
 		prisma.user.findMany({
 			where,
 			select: ADMIN_USER_SELECT,

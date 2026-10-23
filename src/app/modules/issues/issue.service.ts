@@ -50,7 +50,7 @@ const findPage = async (
 	where: Prisma.IssueWhereInput,
 	query: IssueListQuery,
 ) => {
-	const [items, total] = await prisma.$transaction([
+	const [items, total] = await Promise.all([
 		prisma.issue.findMany({
 			where,
 			select: PUBLIC_ISSUE_SELECT,
@@ -384,7 +384,7 @@ const stats = async (user: AuthUser) => {
 				: { reporterId: user.id };
 
 	const [total, pending, inProgress, resolved, highPriority, recentIssues] =
-		await prisma.$transaction([
+		await Promise.all([
 			prisma.issue.count({ where: scope }),
 			prisma.issue.count({ where: { ...scope, status: "PENDING" } }),
 			prisma.issue.count({ where: { ...scope, status: "IN_PROGRESS" } }),
