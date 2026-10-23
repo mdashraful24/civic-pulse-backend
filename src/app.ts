@@ -1,3 +1,4 @@
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -21,6 +22,7 @@ if (config.trust_proxy > 0) {
 
 app.disable("x-powered-by");
 
+app.use(compression());
 app.use(helmet());
 
 app.use(
