@@ -52,7 +52,6 @@ export type RegistrationOtpResult = {
 };
 
 export type ChangePasswordPayload = {
-	currentPassword: string;
 	newPassword: string;
 };
 

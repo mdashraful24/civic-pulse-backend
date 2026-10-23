@@ -50,15 +50,9 @@ export const resendOtpSchema = z.strictObject({
 	email: emailSchema,
 });
 
-export const changePasswordSchema = z
-	.strictObject({
-		currentPassword: z.string().min(1, "Current password is required."),
-		newPassword: strongPasswordSchema,
-	})
-	.refine((data) => data.currentPassword !== data.newPassword, {
-		message: "New password must be different from the current password.",
-		path: ["newPassword"],
-	});
+export const changePasswordSchema = z.strictObject({
+	newPassword: strongPasswordSchema,
+});
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

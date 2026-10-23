@@ -551,6 +551,27 @@ const updateImage = async (
 	return updated;
 };
 
+const removeImage = async (userId: string): Promise<PublicUser> => {
+	const current = await prisma.user.findUnique({
+		where: { id: userId },
+		select: { imagePublicId: true },
+	});
+
+	if (!current) {
+		throw AppError.unauthorized("This account is no longer available.");
+	}
+
+	const updated = await prisma.user.update({
+		where: { id: userId },
+		data: { imageUrl: null, imagePublicId: null },
+		select: PUBLIC_USER_SELECT,
+	});
+
+	await deleteCloudinaryImage(current.imagePublicId);
+
+	return updated;
+};
+
 const changePassword = async (
 	userId: string,
 	payload: ChangePasswordPayload,
@@ -564,13 +585,15 @@ const changePassword = async (
 		throw AppError.unauthorized("This account is no longer available.");
 	}
 
-	const matches = await verifyPassword(
-		payload.currentPassword,
+	const reusesCurrentPassword = await verifyPassword(
+		payload.newPassword,
 		user.passwordHash,
 	);
 
-	if (!matches) {
-		throw AppError.badRequest("Your current password is incorrect.");
+	if (reusesCurrentPassword) {
+		throw AppError.badRequest(
+			"New password must be different from your current password.",
+		);
 	}
 
 	const passwordHash = await hashPassword(payload.newPassword);
@@ -596,5 +619,6 @@ export const AuthService = {
 	logout,
 	me,
 	updateImage,
+	removeImage,
 	changePassword,
 };

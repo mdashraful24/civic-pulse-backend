@@ -136,6 +136,17 @@ const updateImage = catchAsync(async (req, res) => {
 	});
 });
 
+const removeImage = catchAsync(async (req, res) => {
+	const user = await AuthService.removeImage(currentUser(req).id);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Profile photo removed successfully.",
+		data: user,
+	});
+});
+
 const changePassword = catchAsync(async (req, res) => {
 	await AuthService.changePassword(
 		currentUser(req).id,
@@ -161,5 +172,6 @@ export const AuthController = {
 	logout,
 	me,
 	updateImage,
+	removeImage,
 	changePassword,
 };

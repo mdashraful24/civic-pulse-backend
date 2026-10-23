@@ -307,6 +307,7 @@ Errors use `{ "success": false, "statusCode": 4xx, "message": "...", "errors": [
 | `POST` | `/api/auth/logout` | refresh cookie (optional) | End the session |
 | `GET` | `/api/auth/me` | access token | Current user profile |
 | `PATCH` | `/api/auth/me/image` | access token | Upload or replace the profile photo |
+| `DELETE` | `/api/auth/me/image` | access token | Remove the profile photo |
 | `POST` | `/api/auth/change-password` | access token | Change password, revoke all sessions |
 
 #### `POST /api/auth/register`
@@ -397,13 +398,18 @@ curl -b jar.txt -X PATCH http://localhost:5000/api/auth/me/image \
   stored in `imageUrl` and returned in the profile; the Cloudinary public id
   stays server-side and the previous photo is deleted after a replacement.
 
+#### `DELETE /api/auth/me/image`
+
+Removes the current profile photo, deletes the Cloudinary asset and returns the
+updated profile with `imageUrl` set to `null`.
+
 #### `POST /api/auth/change-password`
 
 ```json
-{ "currentPassword": "Old@12345", "newPassword": "New@12345" }
+{ "newPassword": "New@12345" }
 ```
 
-`200` and the client must log in again. `400` if the current password is wrong.
+`200` and the client must log in again. `400` if the new password matches the current password.
 
 ### Issues
 

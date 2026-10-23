@@ -69,6 +69,8 @@ router.patch(
 	AuthController.updateImage,
 );
 
+router.delete("/me/image", requireAuth, AuthController.removeImage);
+
 router.post(
 	"/change-password",
 	requireAuth,
