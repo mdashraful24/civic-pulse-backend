@@ -1,9 +1,9 @@
 import httpStatus from "http-status";
-import { currentUser } from "../../middlewares/auth";
-import { AppError } from "../../utils/AppError";
-import { catchAsync } from "../../utils/catchAsync";
-import { sendResponse } from "../../utils/sendResponse";
-import { IssueService } from "./issue.service";
+import { currentUser } from "../../middlewares/auth.js";
+import { AppError } from "../../utils/AppError.js";
+import { catchAsync } from "../../utils/catchAsync.js";
+import { sendResponse } from "../../utils/sendResponse.js";
+import { IssueService } from "./issue.service.js";
 import type {
 	AssignIssueInput,
 	CreateIssueInput,
@@ -11,7 +11,7 @@ import type {
 	UpdateIssueInput,
 	UpdateIssuePriorityInput,
 	UpdateIssueStatusInput,
-} from "./issue.validation";
+} from "./issue.validation.js";
 
 const list = catchAsync(async (req, res) => {
 	const result = await IssueService.list(req.validatedQuery as IssueListQuery);

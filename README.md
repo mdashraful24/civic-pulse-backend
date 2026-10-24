@@ -183,6 +183,32 @@ bun run start    # one-off
 
 On first boot the demo accounts and demo issues are created (see below).
 
+### Deploying the API to Vercel
+
+The backend includes a Vercel function entrypoint at [`api/index.ts`](./api/index.ts).
+When creating the Vercel project, set the project root to `civic-pulse-backend`
+and add the required environment variables in the Vercel dashboard. At minimum,
+configure:
+
+- `DATABASE_URL` for the hosted PostgreSQL database
+- `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` as different values of at least
+  32 characters
+- `FRONTEND_URL` as the exact deployed frontend origin
+- `NODE_ENV=production`
+- `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_SENDER`
+- `REDIS_HOST`, `REDIS_PORT`, and any required Redis credentials
+
+Run Prisma migrations against the hosted database before using the API:
+
+```bash
+bunx prisma migrate deploy
+```
+
+The generated Prisma client is created automatically during dependency
+installation and the build, so it does not need to be committed. Set
+`SEED_ON_START=false` on Vercel; the long-running `bun run dev`/`bun run start`
+server is for local or non-serverless hosting only.
+
 ---
 
 ## Demo accounts
