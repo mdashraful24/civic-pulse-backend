@@ -124,7 +124,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh-token / session lifetime |
 | `JWT_ISSUER` | `civicpulse-api` | `iss` claim |
 | `JWT_AUDIENCE` | `civicpulse-web` | `aud` claim |
-| `COOKIE_SAME_SITE` | `lax` | `lax` \| `strict` \| `none` |
+| `COOKIE_SAME_SITE` | `lax` locally, `none` in production | `lax` \| `strict` \| `none` |
 | `COOKIE_SECURE` | `true` in production | Send cookies over HTTPS only |
 | `COOKIE_DOMAIN` | unset | e.g. `.example.com` for cross-subdomain |
 | `REDIS_HOST` | `127.0.0.1` | Redis host for OTP storage |
@@ -142,8 +142,10 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `SEED_*` | see `.env.example` | Demo account name / email / password |
 
 > `COOKIE_SAME_SITE=none` requires `COOKIE_SECURE=true`; the server refuses to
-> start otherwise. Keep `lax` unless your frontend is on a different
-> registrable domain.
+> start otherwise. Production defaults to `none` because a separately deployed
+> frontend and API (including separate Vercel deployments) need cross-site
+> credentialed requests. Override it with `COOKIE_SAME_SITE=lax` only when both
+> applications are served from the same site.
 
 ### 3. Start Redis
 
@@ -194,6 +196,8 @@ configure:
 - `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` as different values of at least
   32 characters
 - `FRONTEND_URL` as the exact deployed frontend origin
+- `COOKIE_SECURE=true` and `COOKIE_SAME_SITE=none` for cross-site frontend/API
+  deployments
 - `NODE_ENV=production`
 - `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_SENDER`
 - `REDIS_HOST`, `REDIS_PORT`, and any required Redis credentials

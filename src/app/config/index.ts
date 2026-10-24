@@ -56,7 +56,9 @@ const config = {
 	cookie_secure: process.env.COOKIE_SECURE
 		? process.env.COOKIE_SECURE.trim().toLowerCase() === "true"
 		: isProduction,
-	cookie_same_site: parseSameSite(optional("COOKIE_SAME_SITE", "lax")),
+	cookie_same_site: parseSameSite(
+		optional("COOKIE_SAME_SITE", isProduction ? "none" : "lax"),
+	),
 
 	trust_proxy: optionalNumber("TRUST_PROXY", 0),
 
