@@ -69,9 +69,6 @@ const start = async () => {
 			`CivicPulse API listening on http://localhost:${config.port} (${config.node_env})`,
 		);
 		console.log("  health  GET /health");
-		// console.log(`  auth    ${config.api_prefix}/auth`);
-		// console.log(`  issues  ${config.api_prefix}/issues`);
-		// console.log(`  stats   ${config.api_prefix}/dashboard/stats`);
 	});
 
 	let shuttingDown = false;
