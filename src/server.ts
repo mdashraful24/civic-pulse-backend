@@ -6,6 +6,7 @@ import { isCloudinaryConfigured } from "./app/lib/cloudinary";
 import { isEmailConfigured, transporter } from "./app/lib/nodemailer";
 import { prisma } from "./app/lib/prisma";
 import { connectRedis } from "./app/lib/redis";
+import logger from "./app/logger";
 
 const start = async () => {
 	assertRuntimeConfig();
@@ -14,7 +15,7 @@ const start = async () => {
 
 	try {
 		await connectRedis();
-		console.log("Redis connected.");
+		logger.info("Redis connected.");
 	} catch (error) {
 		console.warn(
 			"Redis is unavailable, so /auth/register, /auth/verify-email and /auth/resend-otp will return 503:",
@@ -25,7 +26,7 @@ const start = async () => {
 	if (isEmailConfigured) {
 		try {
 			await transporter.verify();
-			console.log("SMTP connected.");
+			logger.info("SMTP connected.");
 		} catch (error) {
 			console.warn(
 				"SMTP verification failed:",
@@ -49,26 +50,26 @@ const start = async () => {
 		const issues = await seedIssues();
 
 		if (created.length > 0) {
-			console.log(`Seeded ${created.length} demo account(s):`);
+			logger.info(`Seeded ${created.length} demo account(s):`);
 			for (const account of created) {
-				console.log(`  - ${account.role.padEnd(9)} ${account.email}`);
+				logger.info(`  - ${account.role.padEnd(9)} ${account.email}`);
 			}
 		} else if (existing.length > 0) {
-			console.log(`Demo accounts already present (${existing.length}).`);
+			logger.info(`Demo accounts already present (${existing.length}).`);
 		}
 
 		if (issues.created > 0) {
-			console.log(`Seeded ${issues.created} demo issue(s).`);
+			logger.info(`Seeded ${issues.created} demo issue(s).`);
 		} else if (issues.existing > 0) {
-			console.log(`Demo issues already present (${issues.existing}).`);
+			logger.info(`Demo issues already present (${issues.existing}).`);
 		}
 	}
 
 	const server = app.listen(config.port, () => {
-		console.log(
+		logger.info(
 			`CivicPulse API listening on http://localhost:${config.port} (${config.node_env})`,
 		);
-		console.log("  health  GET /health");
+		logger.info("health - GET /health");
 	});
 
 	let shuttingDown = false;
@@ -77,7 +78,7 @@ const start = async () => {
 		if (shuttingDown) return;
 		shuttingDown = true;
 
-		console.log(`\n${signal} received, shutting down gracefully...`);
+		logger.info(`\n${signal} received, shutting down gracefully...`);
 
 		const force = setTimeout(() => {
 			console.error("Shutdown timed out, forcing exit.");
