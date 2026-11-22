@@ -473,13 +473,13 @@ Query parameters:
 
 | Parameter | Values | Default |
 | --- | --- | --- |
-| `search` | title substring | – |
+| `search` | case-insensitive title, description or location substring | – |
 | `category` | `ROADS`, `STREETLIGHTS`, `WATER`, `WASTE`, `OTHER` | – |
 | `priority` | `LOW`, `MEDIUM`, `HIGH` | – |
 | `status` | `PENDING`, `IN_PROGRESS`, `RESOLVED` | – |
 | `page` | integer ≥ 1 | `1` |
 | `limit` | integer 1–100 | `10` |
-| `sort` | `newest`, `oldest` | `newest` |
+| `sort` | `newest`, `oldest`, `updated`, `priority`, `title` | `newest` |
 
 ```json
 {

@@ -37,13 +37,39 @@ const buildWhere = (query: IssueListQuery): Prisma.IssueWhereInput => {
 	const where: Prisma.IssueWhereInput = {};
 
 	if (query.search) {
-		where.title = { contains: query.search, mode: "insensitive" };
+		where.OR = [
+			{ title: { contains: query.search, mode: "insensitive" } },
+			{ description: { contains: query.search, mode: "insensitive" } },
+			{ location: { contains: query.search, mode: "insensitive" } },
+		];
 	}
 	if (query.category) where.category = query.category;
 	if (query.priority) where.priority = query.priority;
 	if (query.status) where.status = query.status;
 
 	return where;
+};
+
+const buildOrderBy = (
+	query: IssueListQuery,
+): Prisma.IssueOrderByWithRelationInput[] => {
+	const primary: Prisma.IssueOrderByWithRelationInput =
+		query.sort === "oldest"
+			? { createdAt: "asc" }
+			: query.sort === "updated"
+				? { updatedAt: "desc" }
+				: query.sort === "priority"
+					? { priority: "desc" }
+					: query.sort === "title"
+						? { title: "asc" }
+						: { createdAt: "desc" };
+
+	const secondary: Prisma.IssueOrderByWithRelationInput[] =
+		query.sort === "priority" || query.sort === "title"
+			? [{ createdAt: "desc" }]
+			: [];
+
+	return [primary, ...secondary, { id: "asc" }];
 };
 
 const findPage = async (
@@ -54,7 +80,7 @@ const findPage = async (
 		prisma.issue.findMany({
 			where,
 			select: PUBLIC_ISSUE_SELECT,
-			orderBy: { createdAt: query.sort === "oldest" ? "asc" : "desc" },
+			orderBy: buildOrderBy(query),
 			skip: (query.page - 1) * query.limit,
 			take: query.limit,
 		}),

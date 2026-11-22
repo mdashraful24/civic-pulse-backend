@@ -89,7 +89,9 @@ export const issueListQuerySchema = z.object({
 	status: issueStatusSchema.optional(),
 	page: z.coerce.number().int().min(1).default(1),
 	limit: z.coerce.number().int().min(1).max(100).default(10),
-	sort: z.enum(["newest", "oldest"]).default("newest"),
+	sort: z
+		.enum(["newest", "oldest", "updated", "priority", "title"])
+		.default("newest"),
 });
 
 export const issueIdParamsSchema = z.object({
