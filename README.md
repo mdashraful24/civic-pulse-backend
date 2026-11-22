@@ -138,7 +138,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `CLOUDINARY_CLOUD_NAME` | unset | Cloudinary cloud name (all three required for uploads) |
 | `CLOUDINARY_API_KEY` | unset | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | unset | Cloudinary API secret |
-| `SEED_ON_START` | `true` | Create demo accounts and demo issues on boot |
+| `SEED_ON_START` | `false` | Opt in to demo accounts and demo issues on boot; rejected in production |
 | `SEED_*` | see `.env.example` | Demo account name / email / password |
 
 > `COOKIE_SAME_SITE=none` requires `COOKIE_SECURE=true`; the server refuses to
@@ -149,7 +149,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ### 3. Start Redis
 
-Registration OTPs and pending sign-up data are kept in Redis:
+Registration OTPs, password-reset codes, login-failure counters and lock keys are kept in Redis:
 
 ```bash
 redis-server
@@ -157,9 +157,9 @@ redis-server
 docker run --rm -p 6379:6379 redis:7
 ```
 
-If `SMTP_USER` / `SMTP_PASSWORD` are left empty in development, the OTP is
-printed to the API console instead of being emailed. Production startup
-requires both.
+If `SMTP_USER` / `SMTP_PASSWORD` are left empty in development, verification
+and reset emails are skipped with a warning and no OTP is printed. Production
+startup requires both.
 
 ### 4. Create the database schema
 
@@ -183,7 +183,7 @@ bun run dev      # watch mode
 bun run start    # one-off
 ```
 
-On first boot the demo accounts and demo issues are created (see below).
+Demo data is not created unless `SEED_ON_START=true` and all seed credentials are provided.
 
 ### Deploying the API to Vercel
 
@@ -209,27 +209,32 @@ bunx prisma migrate deploy
 ```
 
 The generated Prisma client is created automatically during dependency
-installation and the build, so it does not need to be committed. Set
-`SEED_ON_START=false` on Vercel; the long-running `bun run dev`/`bun run start`
-server is for local or non-serverless hosting only.
+installation and the build, so it does not need to be committed. Demo seeding is
+**disabled by default** (`SEED_ON_START=false`) and is rejected in production;
+the long-running `bun run dev`/`bun run start` server is for local or
+non-serverless hosting only.
 
 ---
 
 ## Demo accounts
 
-| Role | Email | Password |
+Demo data is opt-in for local development only. To create it, set
+`SEED_ON_START=true`, provide all `SEED_*_EMAIL` and `SEED_*_PASSWORD` values,
+then restart the server or run `bun run db:seed`. No credentials or avatar URLs
+are hard-coded. Example values:
+
+| Role | Example email | Example password |
 | --- | --- | --- |
-| `ADMIN` | `admin@civicpulse.local` | `Admin@12345` |
-| `PERSONNEL` | `personnel@civicpulse.local` | `Personnel@12345` |
-| `CITIZEN` | `citizen@civicpulse.local` | `Citizen@12345` |
+| `ADMIN` | `admin@example.test` | choose a strong local password |
+| `PERSONNEL` | `personnel@example.test` | choose a strong local password |
+| `CITIZEN` | `citizen@example.test` | choose a strong local password |
 
 Seeding is **additive**: existing accounts, issues and history are left
 untouched. Missing demo accounts and the demo issues below are created on first
 boot (or with `bun run db:seed`); nothing is deleted or updated.
 
-Each demo account also gets a profile photo (`https://picsum.photos/...`) so the
-`imageUrl` field and the `PATCH /api/auth/me/image` endpoint have data to work
-with right away.
+Optional `SEED_*_IMAGE_URL` values can provide local demo avatars. When omitted,
+`imageUrl` is `null` until a real image is uploaded through the API.
 
 ### Demo issues
 
@@ -633,7 +638,7 @@ cookie switches from the previous role.
 | `bun run dev` | Start with watch mode |
 | `bun run start` | Start once |
 | `bun run typecheck` | `tsc --noEmit` |
-| `bun run test` / `test:watch` | 64 Vitest unit + Supertest route tests |
+| `bun run test` / `test:watch` | 73 Vitest unit + Supertest route tests |
 | `bun run lint:check` / `lint:fix` | Biome lint |
 | `bun run format:check` / `format:fix` | Biome format |
 | `bun run db:generate` | Generate the Prisma client |
@@ -667,11 +672,22 @@ cookie switches from the previous role.
 - [x] Public issue responses exclude reporter and assignee email addresses
 - [x] Issue photos are type-checked, size-limited and uploaded server-side
 - [x] Replaced and deleted issue photos are removed from Cloudinary
+- [x] Global API and mutation rate limits in addition to auth/AI limiters
+- [x] Redis-backed per-account lockout after repeated failed logins
+- [x] Forgot-password and reset-password flows with single-use codes
+- [x] CSRF Origin/Referer checks for cookie-bearing unsafe requests
+- [x] Backend HTML/script sanitization on validated string inputs
+- [x] Winston request logging and centralized error reporting
+- [x] Production data hygiene is enforced at startup and by seed guards
 
 AI-assisted categorization, urgency scoring, summarisation, duplicate
 detection, semantic search, assignee recommendation and structured triage are
 available under `/api/ai`. See [`docs/AI_INTEGRATION.md`](../docs/AI_INTEGRATION.md)
 for the provider abstraction and configuration.
 
-Out of scope by design (proposal §12): forgot-password, interactive maps,
-push notifications and real-time messaging.
+Design documentation is available in [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md),
+[`docs/DATABASE.md`](../docs/DATABASE.md), [`docs/API.md`](../docs/API.md) and
+[`docs/FRONTEND_BACKEND.md`](../docs/FRONTEND_BACKEND.md).
+
+Out of scope by design (proposal §12): interactive maps, push notifications and
+real-time messaging.

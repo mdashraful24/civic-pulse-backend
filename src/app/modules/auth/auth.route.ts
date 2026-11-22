@@ -14,9 +14,11 @@ import {
 import { AuthController } from "./auth.controller";
 import {
 	changePasswordSchema,
+	forgotPasswordSchema,
 	loginSchema,
 	registerSchema,
 	resendOtpSchema,
+	resetPasswordSchema,
 	verifyEmailSchema,
 } from "./auth.validation";
 
@@ -46,6 +48,22 @@ router.post(
 	otpLimiter,
 	validateBody(resendOtpSchema),
 	AuthController.resendOtp,
+);
+
+router.post(
+	"/forgot-password",
+	authLimiter,
+	otpLimiter,
+	validateBody(forgotPasswordSchema),
+	AuthController.forgotPassword,
+);
+
+router.post(
+	"/reset-password",
+	authLimiter,
+	otpLimiter,
+	validateBody(resetPasswordSchema),
+	AuthController.resetPassword,
 );
 
 router.post(

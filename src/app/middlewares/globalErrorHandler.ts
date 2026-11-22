@@ -4,6 +4,7 @@ import multer from "multer";
 import { ZodError } from "zod";
 import { Prisma } from "../../../generated/prisma/client";
 import config from "../config";
+import logger from "../logger";
 import { AppError } from "../utils/AppError";
 
 type ErrorBody = {
@@ -106,7 +107,7 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
 	const isUnexpected = statusCode >= 500;
 	if (isUnexpected) {
-		console.error(
+		logger.error(
 			`[${req.method} ${req.originalUrl}]`,
 			err instanceof Error ? (err.stack ?? err.message) : err,
 		);

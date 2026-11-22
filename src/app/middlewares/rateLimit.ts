@@ -47,6 +47,22 @@ export const otpLimiter = rateLimit({
 	),
 });
 
+export const apiLimiter = rateLimit({
+	...base,
+	windowMs: 15 * 60 * 1000,
+	limit: 300,
+	skip: (req) => req.method === "OPTIONS",
+	message: tooMany("Too many API requests. Please try again later."),
+});
+
+export const mutationLimiter = rateLimit({
+	...base,
+	windowMs: 15 * 60 * 1000,
+	limit: 120,
+	skip: (req) => !["POST", "PATCH", "PUT", "DELETE"].includes(req.method),
+	message: tooMany("Too many write requests. Please try again later."),
+});
+
 export const aiLimiter = rateLimit({
 	...base,
 	windowMs: 60 * 1000,

@@ -55,6 +55,21 @@ export type ChangePasswordPayload = {
 	newPassword: string;
 };
 
+export type ForgotPasswordPayload = {
+	email: string;
+};
+
+export type ResetPasswordPayload = {
+	email: string;
+	otp: string;
+	newPassword: string;
+};
+
+export type PasswordResetOtpResult = {
+	expiresIn: number;
+	expiresAt: string;
+};
+
 export type SessionContext = {
 	userAgent?: string;
 	ipAddress?: string;

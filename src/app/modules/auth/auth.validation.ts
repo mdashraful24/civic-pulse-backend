@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BCRYPT_MAX_BYTES } from "../../utils/password";
+import { sanitizeText } from "../../utils/sanitize";
 
 const emailSchema = z
 	.string()
@@ -23,9 +24,14 @@ const strongPasswordSchema = z
 export const registerSchema = z.strictObject({
 	name: z
 		.string()
-		.trim()
-		.min(2, "Name must be at least 2 characters long.")
-		.max(80, "Name must not exceed 80 characters."),
+		.transform(sanitizeText)
+		.pipe(
+			z
+				.string()
+				.trim()
+				.min(2, "Name must be at least 2 characters long.")
+				.max(80, "Name must not exceed 80 characters."),
+		),
 	email: emailSchema,
 	password: strongPasswordSchema,
 });
@@ -54,8 +60,23 @@ export const changePasswordSchema = z.strictObject({
 	newPassword: strongPasswordSchema,
 });
 
+export const forgotPasswordSchema = z.strictObject({
+	email: emailSchema,
+});
+
+export const resetPasswordSchema = z.strictObject({
+	email: emailSchema,
+	otp: z
+		.string()
+		.trim()
+		.regex(/^\d{6}$/, "The reset code must be 6 digits."),
+	newPassword: strongPasswordSchema,
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

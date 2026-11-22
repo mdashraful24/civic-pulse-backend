@@ -1,11 +1,10 @@
 import { z } from "zod";
+import { sanitizedString } from "../../utils/sanitizedString";
 
 export const adminUsersQuerySchema = z.object({
-	search: z
-		.string()
-		.trim()
-		.max(120, "Search must not exceed 120 characters.")
-		.optional(),
+	search: sanitizedString(
+		z.string().trim().max(120, "Search must not exceed 120 characters."),
+	).optional(),
 	role: z.enum(["CITIZEN", "ADMIN", "PERSONNEL"]).optional(),
 	status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]).optional(),
 	page: z.coerce.number().int().min(1).default(1),
@@ -37,11 +36,13 @@ const flagActionSchema = z.enum(["NONE", "HIDE", "APPROVE"]);
 
 export const createFlagSchema = z.object({
 	issueId: z.uuid({ message: "A valid issue id is required." }),
-	reason: z
-		.string()
-		.trim()
-		.min(5, "Describe the problem in at least 5 characters.")
-		.max(500, "Reason must not exceed 500 characters."),
+	reason: sanitizedString(
+		z
+			.string()
+			.trim()
+			.min(5, "Describe the problem in at least 5 characters.")
+			.max(500, "Reason must not exceed 500 characters."),
+	),
 });
 
 export type CreateFlagInput = z.infer<typeof createFlagSchema>;
@@ -49,7 +50,7 @@ export type CreateFlagInput = z.infer<typeof createFlagSchema>;
 export const resolveFlagSchema = z.object({
 	status: flagStatusSchema,
 	action: flagActionSchema.default("NONE"),
-	note: z.string().trim().max(300).optional(),
+	note: sanitizedString(z.string().trim().max(300)).optional(),
 });
 
 export type ResolveFlagInput = z.infer<typeof resolveFlagSchema>;
@@ -91,7 +92,7 @@ export const appSettingSchema = z.object({
 			/^[a-z][a-z0-9_.-]*$/,
 			"Use lowercase letters, numbers, dots, dashes or underscores.",
 		),
-	value: z.string().trim().max(2000),
+	value: sanitizedString(z.string().trim().max(2000)),
 });
 
 export type AppSettingInput = z.infer<typeof appSettingSchema>;

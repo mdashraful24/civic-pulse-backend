@@ -9,7 +9,10 @@ import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
 import { parseDuration } from "../../utils/duration";
-import { sendRegistrationOtpEmail } from "../../utils/email";
+import {
+	sendPasswordResetOtpEmail,
+	sendRegistrationOtpEmail,
+} from "../../utils/email";
 import {
 	createSessionId,
 	hashToken,
@@ -26,12 +29,15 @@ import type {
 	AuthResult,
 	AuthTokens,
 	ChangePasswordPayload,
+	ForgotPasswordPayload,
 	LoginPayload,
+	PasswordResetOtpResult,
 	PendingRegistration,
 	PublicUser,
 	RegisterPayload,
 	RegistrationOtpResult,
 	ResendOtpPayload,
+	ResetPasswordPayload,
 	SessionContext,
 	VerifyEmailPayload,
 } from "./auth.interface";
@@ -42,6 +48,12 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 const otpKey = (email: string) => `civicpulse-registration-otp:${email}`;
 const registrationKey = (email: string) =>
 	`civicpulse-registration-data:${email}`;
+const passwordResetOtpKey = (email: string) =>
+	`civicpulse-password-reset-otp:${email}`;
+const passwordResetDataKey = (email: string) =>
+	`civicpulse-password-reset-data:${email}`;
+const loginFailureKey = (email: string) => `civicpulse-login-failures:${email}`;
+const loginLockKey = (email: string) => `civicpulse-login-lock:${email}`;
 
 const generateOtp = (): string => crypto.randomInt(100000, 1000000).toString();
 
@@ -57,6 +69,63 @@ const assertRedisAvailable = () => {
 			503,
 			"Email verification is temporarily unavailable. Please try again later.",
 		);
+	}
+};
+
+const assertRedisReady = (message: string) => {
+	if (!redisClient.isOpen) {
+		throw new AppError(503, message);
+	}
+};
+
+const getLoginLockRemaining = async (email: string): Promise<number> => {
+	if (!redisClient.isOpen) {
+		return 0;
+	}
+
+	try {
+		const ttl = await redisClient.ttl(loginLockKey(email));
+		return ttl > 0 ? ttl : 0;
+	} catch {
+		return 0;
+	}
+};
+
+const recordLoginFailure = async (email: string): Promise<void> => {
+	if (!redisClient.isOpen) {
+		return;
+	}
+
+	try {
+		const failures = await redisClient.incr(loginFailureKey(email));
+
+		if (failures === 1) {
+			await redisClient.expire(
+				loginFailureKey(email),
+				config.login_lockout_window_seconds,
+			);
+		}
+
+		if (failures >= config.login_lockout_threshold) {
+			await redisClient.set(loginLockKey(email), "1", {
+				EX: config.login_lockout_duration_seconds,
+			});
+			await redisClient.del(loginFailureKey(email));
+		}
+	} catch {
+		return;
+	}
+};
+
+const clearLoginFailures = async (email: string): Promise<void> => {
+	if (!redisClient.isOpen) {
+		return;
+	}
+
+	try {
+		await redisClient.del([loginFailureKey(email), loginLockKey(email)]);
+	} catch {
+		return;
 	}
 };
 
@@ -342,6 +411,13 @@ const login = async (
 ): Promise<AuthResult> => {
 	const email = normalizeEmail(payload.email);
 
+	const lockRemaining = await getLoginLockRemaining(email);
+	if (lockRemaining > 0) {
+		throw AppError.locked(
+			`Too many failed login attempts. Try again in ${lockRemaining} seconds.`,
+		);
+	}
+
 	const user = await prisma.user.findUnique({
 		where: { email },
 		select: {
@@ -359,6 +435,7 @@ const login = async (
 	);
 
 	if (!user || !passwordMatches) {
+		await recordLoginFailure(email);
 		throw AppError.unauthorized("Invalid email or password.");
 	}
 
@@ -377,6 +454,8 @@ const login = async (
 			"Your email address is not verified. Please verify it to continue.",
 		);
 	}
+
+	await clearLoginFailures(email);
 
 	const tokens = buildTokens(user);
 
@@ -572,6 +651,111 @@ const removeImage = async (userId: string): Promise<PublicUser> => {
 	return updated;
 };
 
+const forgotPassword = async (
+	payload: ForgotPasswordPayload,
+): Promise<PasswordResetOtpResult> => {
+	assertRedisReady(
+		"Password reset is temporarily unavailable. Please try again later.",
+	);
+
+	const email = normalizeEmail(payload.email);
+	const { seconds, minutes, expiresAt } = otpExpiry();
+	const otp = generateOtp();
+
+	const user = await prisma.user.findUnique({
+		where: { email },
+		select: {
+			name: true,
+			status: true,
+			isDeleted: true,
+			emailVerified: true,
+		},
+	});
+
+	const recipient =
+		user && !user.isDeleted && user.status === "ACTIVE" && user.emailVerified
+			? user
+			: null;
+
+	await Promise.all([
+		redisClient.set(passwordResetOtpKey(email), otp, { EX: seconds }),
+		redisClient.set(
+			passwordResetDataKey(email),
+			JSON.stringify({ name: recipient?.name ?? "there" }),
+			{ EX: seconds },
+		),
+	]);
+
+	if (recipient) {
+		await sendPasswordResetOtpEmail({
+			to: email,
+			name: recipient.name,
+			otp,
+			expiresInMinutes: minutes,
+		});
+	}
+
+	return { expiresIn: seconds, expiresAt };
+};
+
+const resetPassword = async (payload: ResetPasswordPayload): Promise<void> => {
+	assertRedisReady(
+		"Password reset is temporarily unavailable. Please try again later.",
+	);
+
+	const email = normalizeEmail(payload.email);
+	const [storedOtp, storedData] = await Promise.all([
+		redisClient.get(passwordResetOtpKey(email)),
+		redisClient.get(passwordResetDataKey(email)),
+	]);
+
+	if (!storedOtp || !storedData || !otpMatches(storedOtp, payload.otp)) {
+		throw AppError.badRequest("The reset code is invalid or has expired.");
+	}
+
+	const user = await prisma.user.findUnique({
+		where: { email },
+		select: {
+			id: true,
+			passwordHash: true,
+			status: true,
+			isDeleted: true,
+		},
+	});
+
+	if (!user || user.isDeleted || user.status !== "ACTIVE") {
+		await redisClient.del([
+			passwordResetOtpKey(email),
+			passwordResetDataKey(email),
+		]);
+		throw AppError.badRequest("The reset code is invalid or has expired.");
+	}
+
+	if (await verifyPassword(payload.newPassword, user.passwordHash)) {
+		throw AppError.badRequest(
+			"New password must be different from your current password.",
+		);
+	}
+
+	const passwordHash = await hashPassword(payload.newPassword);
+
+	await prisma.$transaction([
+		prisma.user.update({
+			where: { id: user.id },
+			data: { passwordHash, tokenVersion: { increment: 1 } },
+		}),
+		prisma.session.updateMany({
+			where: { userId: user.id, revokedAt: null },
+			data: { revokedAt: new Date(), revokedReason: "password-reset" },
+		}),
+	]);
+
+	await Promise.all([
+		redisClient.del([passwordResetOtpKey(email), passwordResetDataKey(email)]),
+		clearLoginFailures(email),
+	]);
+};
+
 const changePassword = async (
 	userId: string,
 	payload: ChangePasswordPayload,
@@ -621,4 +805,6 @@ export const AuthService = {
 	updateImage,
 	removeImage,
 	changePassword,
+	forgotPassword,
+	resetPassword,
 };

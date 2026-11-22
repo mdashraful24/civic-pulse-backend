@@ -1,5 +1,6 @@
 import { v2 as Cloudinary, type UploadApiResponse } from "cloudinary";
 import config from "../config";
+import logger from "../logger";
 import { AppError } from "../utils/AppError";
 
 export const isCloudinaryConfigured = Boolean(
@@ -55,7 +56,7 @@ export const deleteCloudinaryImage = async (publicId: string | null) => {
 	try {
 		await cloudinary.uploader.destroy(publicId);
 	} catch (error) {
-		console.warn(
+		logger.warn(
 			"Failed to delete a Cloudinary image:",
 			error instanceof Error ? error.message : String(error),
 		);

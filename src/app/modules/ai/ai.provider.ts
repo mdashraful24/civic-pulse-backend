@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import config from "../../config";
-import type { AITask, AIProviderName } from "./ai.interface";
+import type { AIProviderName, AITask } from "./ai.interface";
 import {
 	categorizeHeuristic,
 	summarizeHeuristic,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizedString } from "../../utils/sanitizedString";
 
 const issueCategorySchema = z.enum([
 	"ROADS",
@@ -24,58 +25,65 @@ const imageUrlSchema = z
 	});
 
 export const createIssueSchema = z.strictObject({
-	title: z
-		.string()
-		.trim()
-		.min(3, "Title must be at least 3 characters long.")
-		.max(150, "Title must not exceed 150 characters."),
-	description: z
-		.string()
-		.trim()
-		.min(10, "Description must be at least 10 characters long.")
-		.max(5000, "Description must not exceed 5000 characters."),
+	title: sanitizedString(
+		z
+			.string()
+			.trim()
+			.min(3, "Title must be at least 3 characters long.")
+			.max(150, "Title must not exceed 150 characters."),
+	),
+	description: sanitizedString(
+		z
+			.string()
+			.trim()
+			.min(10, "Description must be at least 10 characters long.")
+			.max(5000, "Description must not exceed 5000 characters."),
+	),
 	category: issueCategorySchema,
-	location: z
-		.string()
-		.trim()
-		.min(3, "Location must be at least 3 characters long.")
-		.max(200, "Location must not exceed 200 characters."),
+	location: sanitizedString(
+		z
+			.string()
+			.trim()
+			.min(3, "Location must be at least 3 characters long.")
+			.max(200, "Location must not exceed 200 characters."),
+	),
 	imageUrl: imageUrlSchema.optional(),
 	priority: issuePrioritySchema.default("MEDIUM"),
 });
 
 export const updateIssueSchema = z
 	.strictObject({
-		title: z
-			.string()
-			.trim()
-			.min(3, "Title must be at least 3 characters long.")
-			.max(150, "Title must not exceed 150 characters.")
-			.optional(),
-		description: z
-			.string()
-			.trim()
-			.min(10, "Description must be at least 10 characters long.")
-			.max(5000, "Description must not exceed 5000 characters.")
-			.optional(),
+		title: sanitizedString(
+			z
+				.string()
+				.trim()
+				.min(3, "Title must be at least 3 characters long.")
+				.max(150, "Title must not exceed 150 characters."),
+		).optional(),
+		description: sanitizedString(
+			z
+				.string()
+				.trim()
+				.min(10, "Description must be at least 10 characters long.")
+				.max(5000, "Description must not exceed 5000 characters."),
+		).optional(),
 		category: issueCategorySchema.optional(),
-		location: z
-			.string()
-			.trim()
-			.min(3, "Location must be at least 3 characters long.")
-			.max(200, "Location must not exceed 200 characters.")
-			.optional(),
+		location: sanitizedString(
+			z
+				.string()
+				.trim()
+				.min(3, "Location must be at least 3 characters long.")
+				.max(200, "Location must not exceed 200 characters."),
+		).optional(),
 	})
 	.refine((data) => Object.keys(data).length > 0, {
 		message: "Provide at least one field to update.",
 	});
 
 export const issueListQuerySchema = z.object({
-	search: z
-		.string()
-		.trim()
-		.max(120, "Search must not exceed 120 characters.")
-		.optional(),
+	search: sanitizedString(
+		z.string().trim().max(120, "Search must not exceed 120 characters."),
+	).optional(),
 	category: issueCategorySchema.optional(),
 	priority: issuePrioritySchema.optional(),
 	status: issueStatusSchema.optional(),
@@ -96,11 +104,12 @@ export const assignIssueSchema = z.strictObject({
 
 export const updateIssueStatusSchema = z.strictObject({
 	status: issueStatusSchema,
-	resolutionNote: z
-		.string()
-		.trim()
-		.max(2000, "Resolution note must not exceed 2000 characters.")
-		.optional(),
+	resolutionNote: sanitizedString(
+		z
+			.string()
+			.trim()
+			.max(2000, "Resolution note must not exceed 2000 characters."),
+	).optional(),
 });
 
 export const updateIssuePrioritySchema = z.strictObject({

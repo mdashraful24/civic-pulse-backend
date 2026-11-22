@@ -17,11 +17,11 @@ import type {
 import { AI_CAPABILITIES } from "./ai.interface";
 import { AI_PROMPTS } from "./ai.prompts";
 import {
+	type AICompletionRequest,
+	type AICompletionResult,
 	buildLocalActions,
 	getAIProvider,
 	localProvider,
-	type AICompletionRequest,
-	type AICompletionResult,
 } from "./ai.provider";
 import {
 	buildIdf,

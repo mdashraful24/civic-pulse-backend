@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import request from "supertest";
-import type { Role } from "../../../../generated/prisma/enums";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Role } from "../../../../generated/prisma/enums";
 import app from "../../../app";
 
 const { fixtures } = vi.hoisted(() => ({

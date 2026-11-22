@@ -17,7 +17,7 @@ const start = async () => {
 		await connectRedis();
 		logger.info("Redis connected.");
 	} catch (error) {
-		console.warn(
+		logger.warn(
 			"Redis is unavailable, so /auth/register, /auth/verify-email and /auth/resend-otp will return 503:",
 			error instanceof Error ? error.message : String(error),
 		);
@@ -28,19 +28,19 @@ const start = async () => {
 			await transporter.verify();
 			logger.info("SMTP connected.");
 		} catch (error) {
-			console.warn(
+			logger.warn(
 				"SMTP verification failed:",
 				error instanceof Error ? error.message : String(error),
 			);
 		}
 	} else {
-		console.warn(
-			"SMTP is not configured. Registration OTPs will be printed to this console in development.",
+		logger.warn(
+			"SMTP is not configured. Email delivery is disabled until SMTP is configured.",
 		);
 	}
 
 	if (!isCloudinaryConfigured) {
-		console.warn(
+		logger.warn(
 			"Cloudinary is not configured. Issue image uploads will return 503.",
 		);
 	}
@@ -81,7 +81,7 @@ const start = async () => {
 		logger.info(`\n${signal} received, shutting down gracefully...`);
 
 		const force = setTimeout(() => {
-			console.error("Shutdown timed out, forcing exit.");
+			logger.error("Shutdown timed out, forcing exit.");
 			process.exit(1);
 		}, 10_000);
 		force.unref();
@@ -89,7 +89,7 @@ const start = async () => {
 		server.close(async (error) => {
 			await prisma.$disconnect();
 			if (error) {
-				console.error("Error while closing the HTTP server:", error);
+				logger.error("Error while closing the HTTP server:", error);
 				process.exit(1);
 			}
 			process.exit(0);
@@ -101,7 +101,7 @@ const start = async () => {
 };
 
 start().catch(async (error) => {
-	console.error("Failed to start the CivicPulse API:", error);
+	logger.error("Failed to start the CivicPulse API:", error);
 	await prisma.$disconnect().catch(() => undefined);
 	process.exit(1);
 });

@@ -1,4 +1,6 @@
+import { assertSeedConfig } from "../../src/app/config";
 import { prisma } from "../../src/app/lib/prisma";
+import logger from "../../src/app/logger";
 import { hashPassword } from "../../src/app/utils/password";
 import { adminSeed } from "./admin.seed";
 import { citizenSeed } from "./citizen.seed";
@@ -48,6 +50,7 @@ const seedAccount = async (
 };
 
 export const seedUsers = async (): Promise<SeedResult> => {
+	assertSeedConfig();
 	const accounts = [adminSeed(), personnelSeed(), citizenSeed()];
 	const created: SeedAccount[] = [];
 	const existing: SeedAccount[] = [];
@@ -66,11 +69,11 @@ if (import.meta.main) {
 	const { created, existing } = await seedUsers();
 	const issues = await seedIssues();
 
-	console.log(`Seeded ${created.length} account(s).`);
-	console.log(`Already present: ${existing.length}.`);
-	console.log(`Issues created: ${issues.created}.`);
-	console.log(`Issues already present: ${issues.existing}.`);
-	console.log(`Issues skipped: ${issues.skipped}.`);
+	logger.info(`Seeded ${created.length} account(s).`);
+	logger.info(`Already present: ${existing.length}.`);
+	logger.info(`Issues created: ${issues.created}.`);
+	logger.info(`Issues already present: ${issues.existing}.`);
+	logger.info(`Issues skipped: ${issues.skipped}.`);
 
 	await prisma.$disconnect();
 }

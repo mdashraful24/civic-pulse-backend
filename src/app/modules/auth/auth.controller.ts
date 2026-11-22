@@ -8,18 +8,22 @@ import {
 	REFRESH_TOKEN_COOKIE,
 	setAuthCookies,
 } from "../../utils/cookie";
+import { sanitizeText } from "../../utils/sanitize";
 import { sendResponse } from "../../utils/sendResponse";
 import { AuthService } from "./auth.service";
 import type {
 	ChangePasswordInput,
+	ForgotPasswordInput,
 	LoginInput,
 	RegisterInput,
 	ResendOtpInput,
+	ResetPasswordInput,
 	VerifyEmailInput,
 } from "./auth.validation";
 
 const sessionContext = (req: Pick<Request, "get" | "ip">) => ({
-	userAgent: req.get("user-agent") ?? undefined,
+	userAgent:
+		sanitizeText(req.get("user-agent") ?? "").slice(0, 500) || undefined,
 	ipAddress: req.ip,
 });
 
@@ -147,6 +151,34 @@ const removeImage = catchAsync(async (req, res) => {
 	});
 });
 
+const forgotPassword = catchAsync(async (req, res) => {
+	const result = await AuthService.forgotPassword(
+		req.body as ForgotPasswordInput,
+	);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message:
+			"If an active account exists for that email, a reset code has been sent.",
+		data: result,
+	});
+});
+
+const resetPassword = catchAsync(async (req, res) => {
+	await AuthService.resetPassword(req.body as ResetPasswordInput);
+
+	clearAuthCookies(res);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message:
+			"Password reset successfully. Please log in with your new password.",
+		data: null,
+	});
+});
+
 const changePassword = catchAsync(async (req, res) => {
 	await AuthService.changePassword(
 		currentUser(req).id,
@@ -174,4 +206,6 @@ export const AuthController = {
 	updateImage,
 	removeImage,
 	changePassword,
+	forgotPassword,
+	resetPassword,
 };

@@ -1,5 +1,6 @@
 import { createClient } from "redis";
 import config from "../config";
+import logger from "../logger";
 
 export const redisClient = createClient({
 	username: config.redis_user || undefined,
@@ -13,7 +14,7 @@ export const redisClient = createClient({
 });
 
 redisClient.on("error", (error: unknown) => {
-	console.error(
+	logger.error(
 		"Redis error:",
 		error instanceof Error ? error.message : String(error),
 	);

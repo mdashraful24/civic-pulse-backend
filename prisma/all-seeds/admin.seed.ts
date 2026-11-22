@@ -7,5 +7,5 @@ export const adminSeed = (): SeedAccount => ({
 	email: config.seed_admin_email,
 	password: config.seed_admin_password,
 	role: "ADMIN",
-	imageUrl: "https://picsum.photos/seed/civicpulse-admin/256/256",
+	imageUrl: config.seed_admin_image_url || null,
 });

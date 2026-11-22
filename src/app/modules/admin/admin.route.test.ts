@@ -1,9 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Role } from "../../../../generated/prisma/enums";
 import app from "../../../app";
 import { prisma } from "../../lib/prisma";
-import type { Role } from "../../../../generated/prisma/enums";
 
 const targetId = "11111111-1111-4111-8111-111111111111";
 const flagId = "22222222-2222-4222-8222-222222222222";

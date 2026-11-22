@@ -7,13 +7,13 @@ import { AdminService } from "./admin.service";
 import type {
 	AdminActivityQuery,
 	AdminAnalyticsQuery,
+	AdminUsersQuery,
 	AppSettingInput,
 	ChangeRoleInput,
 	ChangeStatusInput,
 	CreateFlagInput,
 	ModerationFlagsQuery,
 	ResolveFlagInput,
-	AdminUsersQuery,
 } from "./admin.validation";
 
 const listUsers = catchAsync(async (req, res) => {

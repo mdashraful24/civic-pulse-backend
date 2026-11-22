@@ -28,6 +28,10 @@ export class AppError extends Error {
 		return new AppError(403, message);
 	}
 
+	static locked(message = "This account is temporarily locked.") {
+		return new AppError(423, message);
+	}
+
 	static notFound(message = "Resource not found.") {
 		return new AppError(404, message);
 	}

@@ -5,10 +5,13 @@ import express from "express";
 import helmet from "helmet";
 import httpStatus from "http-status";
 import config from "./app/config";
+import { csrfProtection } from "./app/middlewares/csrf";
 import {
 	globalErrorHandler,
 	notFound,
 } from "./app/middlewares/globalErrorHandler";
+import { apiLimiter, mutationLimiter } from "./app/middlewares/rateLimit";
+import { requestLogger } from "./app/middlewares/requestLogger";
 import { AdminRoutes } from "./app/modules/admin/admin.route";
 import { AIRoutes } from "./app/modules/ai/ai.route";
 import { AuthRoutes } from "./app/modules/auth/auth.route";
@@ -37,6 +40,8 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 app.use(cookieParser());
+app.use(csrfProtection);
+app.use(requestLogger);
 
 app.get("/health", (_req, res) => {
 	res.status(httpStatus.OK).json({
@@ -46,6 +51,9 @@ app.get("/health", (_req, res) => {
 		data: { uptime: Math.round(process.uptime()) },
 	});
 });
+
+app.use(config.api_prefix, apiLimiter);
+app.use(config.api_prefix, mutationLimiter);
 
 app.use(`${config.api_prefix}/auth`, AuthRoutes);
 app.use(`${config.api_prefix}/issues`, IssueRoutes);

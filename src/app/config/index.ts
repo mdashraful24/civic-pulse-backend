@@ -80,26 +80,29 @@ const config = {
 		"REGISTRATION_SESSION_EXPIRES_IN_SECONDS",
 		300,
 	),
+	login_lockout_threshold: optionalNumber("LOGIN_LOCKOUT_THRESHOLD", 5),
+	login_lockout_window_seconds: optionalNumber(
+		"LOGIN_LOCKOUT_WINDOW_SECONDS",
+		900,
+	),
+	login_lockout_duration_seconds: optionalNumber(
+		"LOGIN_LOCKOUT_DURATION_SECONDS",
+		900,
+	),
 
-	seed_admin_name: optional("SEED_ADMIN_NAME", "CivicPulse Admin"),
-	seed_admin_email: optional("SEED_ADMIN_EMAIL", "admin@civicpulse.local"),
-	seed_admin_password: optional("SEED_ADMIN_PASSWORD", "Admin@12345"),
-	seed_personnel_name: optional("SEED_PERSONNEL_NAME", "CivicPulse Personnel"),
-	seed_personnel_email: optional(
-		"SEED_PERSONNEL_EMAIL",
-		"personnel@civicpulse.local",
-	),
-	seed_personnel_password: optional(
-		"SEED_PERSONNEL_PASSWORD",
-		"Personnel@12345",
-	),
-	seed_citizen_name: optional("SEED_CITIZEN_NAME", "CivicPulse Citizen"),
-	seed_citizen_email: optional(
-		"SEED_CITIZEN_EMAIL",
-		"citizen@civicpulse.local",
-	),
-	seed_citizen_password: optional("SEED_CITIZEN_PASSWORD", "Citizen@12345"),
-	seed_on_start: optional("SEED_ON_START", "true").toLowerCase() === "true",
+	seed_admin_name: optional("SEED_ADMIN_NAME", "Local Admin"),
+	seed_admin_email: optional("SEED_ADMIN_EMAIL", ""),
+	seed_admin_password: optional("SEED_ADMIN_PASSWORD", ""),
+	seed_admin_image_url: optional("SEED_ADMIN_IMAGE_URL", ""),
+	seed_personnel_name: optional("SEED_PERSONNEL_NAME", "Local Personnel"),
+	seed_personnel_email: optional("SEED_PERSONNEL_EMAIL", ""),
+	seed_personnel_password: optional("SEED_PERSONNEL_PASSWORD", ""),
+	seed_personnel_image_url: optional("SEED_PERSONNEL_IMAGE_URL", ""),
+	seed_citizen_name: optional("SEED_CITIZEN_NAME", "Local Citizen"),
+	seed_citizen_email: optional("SEED_CITIZEN_EMAIL", ""),
+	seed_citizen_password: optional("SEED_CITIZEN_PASSWORD", ""),
+	seed_citizen_image_url: optional("SEED_CITIZEN_IMAGE_URL", ""),
+	seed_on_start: optional("SEED_ON_START", "false").toLowerCase() === "true",
 
 	ai_provider: optional("AI_PROVIDER", "local").toLowerCase(),
 	ai_api_key: optional("AI_API_KEY", ""),
@@ -110,6 +113,41 @@ const config = {
 	ai_daily_limit_per_user: optionalNumber("AI_DAILY_LIMIT_PER_USER", 100),
 	ai_cache_ttl_seconds: optionalNumber("AI_CACHE_TTL_SECONDS", 300),
 	ai_max_corpus_items: optionalNumber("AI_MAX_CORPUS_ITEMS", 500),
+};
+
+export const assertSeedConfig = () => {
+	if (isProduction && config.seed_on_start) {
+		throw new Error(
+			"SEED_ON_START must be false in production. Demo data is for local development only.",
+		);
+	}
+
+	if (!config.seed_on_start) return;
+
+	const missing: string[] = [];
+
+	if (!config.seed_admin_email) missing.push("SEED_ADMIN_EMAIL");
+	if (!config.seed_admin_password) missing.push("SEED_ADMIN_PASSWORD");
+	if (!config.seed_personnel_email) missing.push("SEED_PERSONNEL_EMAIL");
+	if (!config.seed_personnel_password) missing.push("SEED_PERSONNEL_PASSWORD");
+	if (!config.seed_citizen_email) missing.push("SEED_CITIZEN_EMAIL");
+	if (!config.seed_citizen_password) missing.push("SEED_CITIZEN_PASSWORD");
+
+	if (missing.length > 0) {
+		throw new Error(
+			`Seeding is enabled but missing environment variable(s): ${missing.join(", ")}.`,
+		);
+	}
+
+	const emails = [
+		config.seed_admin_email,
+		config.seed_personnel_email,
+		config.seed_citizen_email,
+	].map((email) => email.trim().toLowerCase());
+
+	if (new Set(emails).size !== emails.length) {
+		throw new Error("Seed account emails must be unique.");
+	}
 };
 
 export const assertRuntimeConfig = () => {
@@ -165,6 +203,29 @@ export const assertRuntimeConfig = () => {
 	) {
 		throw new Error(
 			"REGISTRATION_SESSION_EXPIRES_IN_SECONDS must be greater than or equal to OTP_EXPIRES_IN_SECONDS.",
+		);
+	}
+
+	if (
+		!Number.isInteger(config.login_lockout_threshold) ||
+		config.login_lockout_threshold < 1
+	) {
+		throw new Error("LOGIN_LOCKOUT_THRESHOLD must be at least 1.");
+	}
+
+	if (
+		!Number.isInteger(config.login_lockout_window_seconds) ||
+		config.login_lockout_window_seconds <= 0
+	) {
+		throw new Error("LOGIN_LOCKOUT_WINDOW_SECONDS must be a positive integer.");
+	}
+
+	if (
+		!Number.isInteger(config.login_lockout_duration_seconds) ||
+		config.login_lockout_duration_seconds <= 0
+	) {
+		throw new Error(
+			"LOGIN_LOCKOUT_DURATION_SECONDS must be a positive integer.",
 		);
 	}
 
@@ -258,6 +319,8 @@ export const assertRuntimeConfig = () => {
 			);
 		}
 	}
+
+	assertSeedConfig();
 };
 
 export default config;
