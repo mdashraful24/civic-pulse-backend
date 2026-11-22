@@ -76,7 +76,10 @@ type Wrapped<T> = {
 
 const loadCorpus = async (excludeId?: string): Promise<CorpusIssue[]> => {
 	const records: CorpusRecord[] = await prisma.issue.findMany({
-		where: excludeId ? { id: { not: excludeId } } : undefined,
+		where: {
+			moderationStatus: "VISIBLE",
+			...(excludeId ? { id: { not: excludeId } } : {}),
+		},
 		select: CORPUS_SELECT,
 		orderBy: { createdAt: "desc" },
 		take: Math.min(config.ai_max_corpus_items, 5000),

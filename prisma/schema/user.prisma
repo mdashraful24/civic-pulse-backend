@@ -31,6 +31,11 @@ model User {
   assignedIssues Issue[]        @relation("AssignedIssues")
   issueChanges   IssueHistory[] @relation("IssueChanges")
 
+  adminActions    AdminActionLog[] @relation("AdminActions")
+  moderationFlags ModerationFlag[] @relation("ModerationFlags")
+  resolvedFlags   ModerationFlag[] @relation("ResolvedFlags")
+  updatedSettings AppSetting[]     @relation("UpdatedSettings")
+
   @@index([role])
   @@index([status])
   @@map("users")

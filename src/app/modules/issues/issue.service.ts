@@ -70,7 +70,7 @@ const findPage = async (
 const list = async (
 	query: IssueListQuery,
 ): Promise<IssueListResult<PublicIssue>> => {
-	return findPage(buildWhere(query), query);
+	return findPage({ ...buildWhere(query), moderationStatus: "VISIBLE" }, query);
 };
 
 const listMine = async (
@@ -89,7 +89,7 @@ const listAssigned = async (
 
 const getById = async (id: string): Promise<PublicIssue> => {
 	const issue = await prisma.issue.findUnique({
-		where: { id },
+		where: { id, moderationStatus: "VISIBLE" },
 		select: PUBLIC_ISSUE_SELECT,
 	});
 

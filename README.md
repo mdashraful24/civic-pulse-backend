@@ -566,6 +566,18 @@ five most recent issues in scope.
 | `GET` | `/api/admin/users` | `ADMIN` | List and search users |
 | `PATCH` | `/api/admin/users/:id/image` | `ADMIN` | Replace a user's photo |
 | `DELETE` | `/api/admin/users/:id/image` | `ADMIN` | Remove a user's photo |
+| `PATCH` | `/api/admin/users/:id/role` | `ADMIN` | Change a user's role |
+| `PATCH` | `/api/admin/users/:id/status` | `ADMIN` | Block or unblock an account |
+| `POST` | `/api/admin/users/:id/reset-password` | `ADMIN` | Reset a password and return a temporary secret |
+| `POST` | `/api/admin/users/:id/terminate-sessions` | `ADMIN` | Revoke every active session |
+| `DELETE` | `/api/admin/users/:id` | `ADMIN` | Soft-delete an account |
+| `GET` | `/api/admin/analytics` | `ADMIN` | Issue trends, category analytics and user growth |
+| `GET` | `/api/admin/activity` | `ADMIN` | Admin action audit log |
+| `GET` | `/api/admin/moderation/flags` | `ADMIN` | Moderation queue |
+| `POST` | `/api/admin/moderation/flags` | Authenticated | Report an issue for review |
+| `PATCH` | `/api/admin/moderation/flags/:id` | `ADMIN` | Resolve a flag and optionally hide or approve the issue |
+| `GET` | `/api/admin/settings` | `ADMIN` | List app settings |
+| `PUT` | `/api/admin/settings` | `ADMIN` | Create or update an app setting |
 
 Query parameters: `search` (name or email), `role`
 (`CITIZEN`/`ADMIN`/`PERSONNEL`), `status` (`ACTIVE`/`BLOCKED`/`DELETED`),
@@ -575,6 +587,11 @@ Query parameters: `search` (name or email), `role`
 `image` form-data field (max 5 MB) and replaces the user's Cloudinary photo.
 `DELETE /api/admin/users/:id/image` clears `imageUrl` and removes the file from
 Cloudinary. Every user result already includes `imageUrl`.
+
+Role/status changes, account deletion, password resets, session termination,
+moderation resolutions and settings updates are written to the admin activity
+log. Admins cannot modify themselves or remove the last active admin. Hidden
+issues are excluded from public issue responses and AI search results.
 
 ### Health
 
@@ -616,6 +633,7 @@ cookie switches from the previous role.
 | `bun run dev` | Start with watch mode |
 | `bun run start` | Start once |
 | `bun run typecheck` | `tsc --noEmit` |
+| `bun run test` / `test:watch` | 64 Vitest unit + Supertest route tests |
 | `bun run lint:check` / `lint:fix` | Biome lint |
 | `bun run format:check` / `format:fix` | Biome format |
 | `bun run db:generate` | Generate the Prisma client |

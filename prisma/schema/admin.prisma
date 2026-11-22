@@ -1,0 +1,55 @@
+model AdminActionLog {
+  id String @id @default(uuid())
+
+  actorId String
+  actor   User   @relation("AdminActions", fields: [actorId], references: [id], onDelete: Restrict)
+
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@map("admin_action_logs")
+}
+
+model ModerationFlag {
+  id String @id @default(uuid())
+
+  issueId String
+  issue   Issue  @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  reporterId String
+  reporter   User   @relation("ModerationFlags", fields: [reporterId], references: [id], onDelete: Restrict)
+
+  reason String
+  status FlagStatus @default(PENDING)
+  action FlagAction @default(NONE)
+
+  resolutionNote String?
+  resolvedById   String?
+  resolvedBy     User?   @relation("ResolvedFlags", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([issueId])
+  @@map("moderation_flags")
+}
+
+model AppSetting {
+  key   String @id
+  value String
+
+  updatedById String?
+  updatedBy   User?   @relation("UpdatedSettings", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
