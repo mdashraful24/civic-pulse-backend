@@ -10,6 +10,7 @@ import {
 	notFound,
 } from "./app/middlewares/globalErrorHandler";
 import { AdminRoutes } from "./app/modules/admin/admin.route";
+import { AIRoutes } from "./app/modules/ai/ai.route";
 import { AuthRoutes } from "./app/modules/auth/auth.route";
 import { DashboardRoutes } from "./app/modules/dashboard/dashboard.route";
 import { IssueRoutes } from "./app/modules/issues/issue.route";
@@ -50,6 +51,7 @@ app.use(`${config.api_prefix}/auth`, AuthRoutes);
 app.use(`${config.api_prefix}/issues`, IssueRoutes);
 app.use(`${config.api_prefix}/dashboard`, DashboardRoutes);
 app.use(`${config.api_prefix}/admin`, AdminRoutes);
+app.use(`${config.api_prefix}/ai`, AIRoutes);
 
 app.use(notFound);
 app.use(globalErrorHandler);

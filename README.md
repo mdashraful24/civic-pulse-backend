@@ -650,5 +650,10 @@ cookie switches from the previous role.
 - [x] Issue photos are type-checked, size-limited and uploaded server-side
 - [x] Replaced and deleted issue photos are removed from Cloudinary
 
+AI-assisted categorization, urgency scoring, summarisation, duplicate
+detection, semantic search, assignee recommendation and structured triage are
+available under `/api/ai`. See [`docs/AI_INTEGRATION.md`](../docs/AI_INTEGRATION.md)
+for the provider abstraction and configuration.
+
 Out of scope by design (proposal §12): forgot-password, interactive maps,
-push notifications, real-time messaging and AI classification.
+push notifications and real-time messaging.

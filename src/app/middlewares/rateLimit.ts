@@ -46,3 +46,10 @@ export const otpLimiter = rateLimit({
 		"Too many verification attempts. Please try again in 15 minutes.",
 	),
 });
+
+export const aiLimiter = rateLimit({
+	...base,
+	windowMs: 60 * 1000,
+	limit: 30,
+	message: tooMany("Too many AI requests. Please slow down and try again."),
+});

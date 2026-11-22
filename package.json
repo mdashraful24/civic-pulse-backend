@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "postinstall": "prisma generate",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:generate": "bun --bun run prisma generate",
     "db:migrate": "bun --bun run prisma migrate dev",
     "db:studio": "bun --bun run prisma studio",
@@ -38,7 +39,8 @@
     "prisma": "^7.10.1",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

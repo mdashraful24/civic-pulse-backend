@@ -100,6 +100,16 @@ const config = {
 	),
 	seed_citizen_password: optional("SEED_CITIZEN_PASSWORD", "Citizen@12345"),
 	seed_on_start: optional("SEED_ON_START", "true").toLowerCase() === "true",
+
+	ai_provider: optional("AI_PROVIDER", "local").toLowerCase(),
+	ai_api_key: optional("AI_API_KEY", ""),
+	ai_model: optional("AI_MODEL", "gpt-4o-mini"),
+	ai_timeout_ms: optionalNumber("AI_TIMEOUT_MS", 8000),
+	ai_max_tokens: optionalNumber("AI_MAX_TOKENS", 512),
+	ai_temperature: optionalNumber("AI_TEMPERATURE", 0.2),
+	ai_daily_limit_per_user: optionalNumber("AI_DAILY_LIMIT_PER_USER", 100),
+	ai_cache_ttl_seconds: optionalNumber("AI_CACHE_TTL_SECONDS", 300),
+	ai_max_corpus_items: optionalNumber("AI_MAX_CORPUS_ITEMS", 500),
 };
 
 export const assertRuntimeConfig = () => {
@@ -160,6 +170,49 @@ export const assertRuntimeConfig = () => {
 
 	if (!Number.isInteger(config.redis_port) || config.redis_port <= 0) {
 		throw new Error("REDIS_PORT must be a positive integer.");
+	}
+
+	if (!["local", "openai", "gemini"].includes(config.ai_provider)) {
+		throw new Error(
+			'AI_PROVIDER must be one of "local", "openai" or "gemini".',
+		);
+	}
+
+	if (config.ai_provider !== "local" && !config.ai_api_key) {
+		throw new Error(
+			"AI_API_KEY is required when AI_PROVIDER is not local. " +
+				'Set AI_PROVIDER="local" to use the built-in offline provider.',
+		);
+	}
+
+	if (!Number.isInteger(config.ai_timeout_ms) || config.ai_timeout_ms <= 0) {
+		throw new Error("AI_TIMEOUT_MS must be a positive integer.");
+	}
+
+	if (!Number.isInteger(config.ai_max_tokens) || config.ai_max_tokens <= 0) {
+		throw new Error("AI_MAX_TOKENS must be a positive integer.");
+	}
+
+	if (config.ai_temperature < 0 || config.ai_temperature > 2) {
+		throw new Error("AI_TEMPERATURE must be between 0 and 2.");
+	}
+
+	if (
+		!Number.isInteger(config.ai_daily_limit_per_user) ||
+		config.ai_daily_limit_per_user <= 0
+	) {
+		throw new Error("AI_DAILY_LIMIT_PER_USER must be a positive integer.");
+	}
+
+	if (config.ai_cache_ttl_seconds < 0) {
+		throw new Error("AI_CACHE_TTL_SECONDS must not be negative.");
+	}
+
+	if (
+		!Number.isInteger(config.ai_max_corpus_items) ||
+		config.ai_max_corpus_items <= 0
+	) {
+		throw new Error("AI_MAX_CORPUS_ITEMS must be a positive integer.");
 	}
 
 	const cloudinaryValues = [
