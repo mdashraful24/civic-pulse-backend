@@ -64,9 +64,9 @@ vi.mock("../../lib/redis", () => ({
 	},
 }));
 
-vi.mock("../../utils/email", () => ({
-	sendRegistrationOtpEmail: vi.fn(async () => undefined),
-	sendPasswordResetOtpEmail: vi.fn(async () => undefined),
+vi.mock("../../jobs/email.queue", () => ({
+	enqueueRegistrationOtpEmail: vi.fn(async () => undefined),
+	enqueuePasswordResetOtpEmail: vi.fn(async () => undefined),
 }));
 
 vi.mock("../../utils/password", () => ({
@@ -95,8 +95,8 @@ vi.mock("../../lib/prisma", () => ({
 }));
 
 import config from "../../config";
+import { enqueuePasswordResetOtpEmail } from "../../jobs/email.queue";
 import { prisma } from "../../lib/prisma";
-import { sendPasswordResetOtpEmail } from "../../utils/email";
 import { AuthService } from "./auth.service";
 
 beforeEach(() => {
@@ -111,7 +111,7 @@ describe("password reset", () => {
 		});
 
 		expect(result.expiresIn).toBeGreaterThan(0);
-		expect(sendPasswordResetOtpEmail).toHaveBeenCalledWith(
+		expect(enqueuePasswordResetOtpEmail).toHaveBeenCalledWith(
 			expect.objectContaining({ to: "user@example.com" }),
 		);
 

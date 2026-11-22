@@ -1,7 +1,10 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-    entry: ["src/server.ts"],
+    entry: {
+        server: "src/server.ts",
+        "workers/email.worker": "src/app/workers/email.worker.ts",
+    },
     format: ["esm"], // Keep this as ESM
     target: "esnext",
     outDir: "dist",

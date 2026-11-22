@@ -2,6 +2,7 @@ import { seedIssues } from "../prisma/all-seeds/issues.seed";
 import { seedUsers } from "../prisma/all-seeds/seed";
 import app from "./app";
 import config, { assertRuntimeConfig } from "./app/config";
+import { closeEmailQueue } from "./app/jobs/email.queue";
 import { isCloudinaryConfigured } from "./app/lib/cloudinary";
 import { isEmailConfigured, transporter } from "./app/lib/nodemailer";
 import { prisma } from "./app/lib/prisma";
@@ -87,6 +88,7 @@ const start = async () => {
 		force.unref();
 
 		server.close(async (error) => {
+			await closeEmailQueue();
 			await prisma.$disconnect();
 			if (error) {
 				logger.error("Error while closing the HTTP server:", error);

@@ -127,9 +127,14 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `COOKIE_SAME_SITE` | `lax` locally, `none` in production | `lax` \| `strict` \| `none` |
 | `COOKIE_SECURE` | `true` in production | Send cookies over HTTPS only |
 | `COOKIE_DOMAIN` | unset | e.g. `.example.com` for cross-subdomain |
-| `REDIS_HOST` | `127.0.0.1` | Redis host for OTP storage |
+| `REDIS_HOST` | `127.0.0.1` | Redis host for OTP storage, response cache and job queue |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_USER` / `REDIS_PASSWORD` | unset | Set if your Redis requires auth |
+| `CACHE_ENABLED` | `true` | Cache public GET responses when Redis is available |
+| `CACHE_TTL_SECONDS` | `60` | Default public response cache TTL |
+| `JOBS_MODE` | `inline` | `inline` sends OTP emails in-process; `queue` uses BullMQ |
+| `JOBS_QUEUE_NAME` | `civicpulse-jobs` | Shared API/worker queue name |
+| `JOBS_REDIS_TLS` | `false` | Enable TLS for the BullMQ Redis connection |
 | `SMTP_USER` | unset | SMTP account (Gmail address) |
 | `SMTP_PASSWORD` | unset | Gmail **App Password** |
 | `EMAIL_SENDER` | SMTP user | `From` header for OTP emails |
@@ -213,6 +218,14 @@ installation and the build, so it does not need to be committed. Demo seeding is
 **disabled by default** (`SEED_ON_START=false`) and is rejected in production;
 the long-running `bun run dev`/`bun run start` server is for local or
 non-serverless hosting only.
+
+Public issue list, detail, history and stats responses are cached in Redis when
+`CACHE_ENABLED=true` and Redis is reachable; cache reads fail open to the
+database and issue-related writes invalidate the affected namespaces. Authenticated dashboard stats are deliberately not cached because they
+are role-scoped. OTP emails use `JOBS_MODE=inline` by default for serverless
+deployments. For a long-running deployment, set `JOBS_MODE=queue` and run
+`bun run worker:start` beside the API to process the BullMQ email queue; queue
+failures also fall back to inline delivery.
 
 ---
 
@@ -635,10 +648,12 @@ cookie switches from the previous role.
 
 | Script | Description |
 | --- | --- |
-| `bun run dev` | Start with watch mode |
-| `bun run start` | Start once |
+| `bun run dev` | Start API with watch mode |
+| `bun run start` | Start API once |
+| `bun run worker:dev` | Start the BullMQ email worker with watch mode |
+| `bun run worker:start` | Start the built BullMQ email worker |
 | `bun run typecheck` | `tsc --noEmit` |
-| `bun run test` / `test:watch` | 73 Vitest unit + Supertest route tests |
+| `bun run test` / `test:watch` | Vitest unit + Supertest route tests |
 | `bun run lint:check` / `lint:fix` | Biome lint |
 | `bun run format:check` / `format:fix` | Biome format |
 | `bun run db:generate` | Generate the Prisma client |

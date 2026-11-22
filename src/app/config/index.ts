@@ -67,6 +67,12 @@ const config = {
 	redis_host: optional("REDIS_HOST", "127.0.0.1"),
 	redis_port: optionalNumber("REDIS_PORT", 6379),
 
+	cache_enabled: optional("CACHE_ENABLED", "true").toLowerCase() === "true",
+	cache_ttl_seconds: optionalNumber("CACHE_TTL_SECONDS", 60),
+	jobs_mode: optional("JOBS_MODE", "inline").toLowerCase(),
+	jobs_queue_name: optional("JOBS_QUEUE_NAME", "civicpulse-jobs"),
+	jobs_redis_tls: optional("JOBS_REDIS_TLS", "false").toLowerCase() === "true",
+
 	smtp_user: optional("SMTP_USER", ""),
 	smtp_password: optional("SMTP_PASSWORD", ""),
 	email_sender: optional("EMAIL_SENDER", ""),
@@ -231,6 +237,17 @@ export const assertRuntimeConfig = () => {
 
 	if (!Number.isInteger(config.redis_port) || config.redis_port <= 0) {
 		throw new Error("REDIS_PORT must be a positive integer.");
+	}
+
+	if (
+		!Number.isInteger(config.cache_ttl_seconds) ||
+		config.cache_ttl_seconds <= 0
+	) {
+		throw new Error("CACHE_TTL_SECONDS must be a positive integer.");
+	}
+
+	if (!["inline", "queue"].includes(config.jobs_mode)) {
+		throw new Error('JOBS_MODE must be one of "inline" or "queue".');
 	}
 
 	if (!["local", "openai", "gemini"].includes(config.ai_provider)) {

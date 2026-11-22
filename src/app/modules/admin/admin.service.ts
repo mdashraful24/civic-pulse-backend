@@ -6,6 +6,7 @@ import {
 } from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
+import { invalidateIssueCaches } from "../issues/issue.service";
 import { hashPassword } from "../../utils/password";
 import type {
 	AdminActivityQuery,
@@ -138,6 +139,7 @@ const updateUserImage = async (id: string, buffer: Buffer) => {
 	}
 
 	await deleteCloudinaryImage(current.imagePublicId);
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -151,6 +153,7 @@ const removeUserImage = async (id: string): Promise<void> => {
 	});
 
 	await deleteCloudinaryImage(current.imagePublicId);
+	await invalidateIssueCaches();
 };
 
 const listUsers = async (query: AdminUsersQuery) => {
@@ -205,6 +208,7 @@ const changeRole = async (
 	await logAction(actorId, "USER_ROLE_CHANGED", "USER", id, {
 		role: input.role,
 	});
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -234,6 +238,7 @@ const changeStatus = async (
 	await logAction(actorId, "USER_STATUS_CHANGED", "USER", id, {
 		status: input.status,
 	});
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -254,6 +259,7 @@ const deleteUser = async (actorId: string, id: string): Promise<void> => {
 	});
 	await revokeSessions(id, "account-deleted");
 	await logAction(actorId, "USER_DELETED", "USER", id);
+	await invalidateIssueCaches();
 };
 
 const resetPassword = async (actorId: string, id: string) => {
@@ -508,6 +514,7 @@ const resolveFlag = async (
 				moderationStatus: input.action === "HIDE" ? "HIDDEN" : "VISIBLE",
 			},
 		});
+		await invalidateIssueCaches();
 	}
 
 	await logAction(actorId, "MODERATION_FLAG_RESOLVED", "ISSUE", flag.issueId, {

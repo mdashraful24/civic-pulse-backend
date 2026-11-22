@@ -1,4 +1,6 @@
 import type { Prisma } from "../../../../generated/prisma/client";
+import config from "../../config";
+import { cacheAside, cacheKey, invalidateCache } from "../../lib/cache";
 import {
 	deleteCloudinaryImage,
 	uploadImageToCloudinary,
@@ -32,6 +34,21 @@ const meta = (
 	total,
 	totalPages: Math.ceil(total / limit) || 0,
 });
+
+export const invalidateIssueCaches = async (): Promise<void> => {
+	await Promise.all([
+		invalidateCache("issues"),
+		invalidateCache("issue"),
+		invalidateCache("issue-history"),
+		invalidateCache("stats"),
+	]);
+};
+
+const withIssueInvalidation = async <T>(work: Promise<T>): Promise<T> => {
+	const result = await work;
+	await invalidateIssueCaches();
+	return result;
+};
 
 const buildWhere = (query: IssueListQuery): Prisma.IssueWhereInput => {
 	const where: Prisma.IssueWhereInput = {};
@@ -96,7 +113,9 @@ const findPage = async (
 const list = async (
 	query: IssueListQuery,
 ): Promise<IssueListResult<PublicIssue>> => {
-	return findPage({ ...buildWhere(query), moderationStatus: "VISIBLE" }, query);
+	return cacheAside("issues", cacheKey(query), () =>
+		findPage({ ...buildWhere(query), moderationStatus: "VISIBLE" }, query),
+	);
 };
 
 const listMine = async (
@@ -114,32 +133,36 @@ const listAssigned = async (
 };
 
 const getById = async (id: string): Promise<PublicIssue> => {
-	const issue = await prisma.issue.findUnique({
-		where: { id, moderationStatus: "VISIBLE" },
-		select: PUBLIC_ISSUE_SELECT,
+	return cacheAside("issue", id, async () => {
+		const issue = await prisma.issue.findUnique({
+			where: { id, moderationStatus: "VISIBLE" },
+			select: PUBLIC_ISSUE_SELECT,
+		});
+
+		if (!issue) {
+			throw AppError.notFound("Issue not found.");
+		}
+
+		return issue;
 	});
-
-	if (!issue) {
-		throw AppError.notFound("Issue not found.");
-	}
-
-	return issue;
 };
 
 const history = async (id: string): Promise<PublicIssueHistory[]> => {
-	const issue = await prisma.issue.findUnique({
-		where: { id },
-		select: { id: true },
-	});
+	return cacheAside("issue-history", id, async () => {
+		const issue = await prisma.issue.findUnique({
+			where: { id },
+			select: { id: true },
+		});
 
-	if (!issue) {
-		throw AppError.notFound("Issue not found.");
-	}
+		if (!issue) {
+			throw AppError.notFound("Issue not found.");
+		}
 
-	return prisma.issueHistory.findMany({
-		where: { issueId: id },
-		select: ISSUE_HISTORY_SELECT,
-		orderBy: { createdAt: "asc" },
+		return prisma.issueHistory.findMany({
+			where: { issueId: id },
+			select: ISSUE_HISTORY_SELECT,
+			orderBy: { createdAt: "asc" },
+		});
 	});
 };
 
@@ -153,32 +176,34 @@ const create = async (
 		: null;
 
 	try {
-		return await prisma.$transaction(async (tx) => {
-			const issue = await tx.issue.create({
-				data: {
-					title: payload.title,
-					description: payload.description,
-					category: payload.category,
-					location: payload.location,
-					imageUrl: uploaded?.secure_url ?? payload.imageUrl ?? null,
-					imagePublicId: uploaded?.public_id ?? null,
-					priority: payload.priority,
-					reporterId: userId,
-				},
-				select: PUBLIC_ISSUE_SELECT,
-			});
+		return await withIssueInvalidation(
+			prisma.$transaction(async (tx) => {
+				const issue = await tx.issue.create({
+					data: {
+						title: payload.title,
+						description: payload.description,
+						category: payload.category,
+						location: payload.location,
+						imageUrl: uploaded?.secure_url ?? payload.imageUrl ?? null,
+						imagePublicId: uploaded?.public_id ?? null,
+						priority: payload.priority,
+						reporterId: userId,
+					},
+					select: PUBLIC_ISSUE_SELECT,
+				});
 
-			await tx.issueHistory.create({
-				data: {
-					issueId: issue.id,
-					changedById: userId,
-					newStatus: "PENDING",
-					note: "Issue reported.",
-				},
-			});
+				await tx.issueHistory.create({
+					data: {
+						issueId: issue.id,
+						changedById: userId,
+						newStatus: "PENDING",
+						note: "Issue reported.",
+					},
+				});
 
-			return issue;
-		});
+				return issue;
+			}),
+		);
 	} catch (error) {
 		if (uploaded) await deleteCloudinaryImage(uploaded.public_id);
 		throw error;
@@ -222,16 +247,18 @@ const update = async (
 		);
 	}
 
-	return prisma.issue.update({
-		where: { id },
-		data: {
-			title: payload.title,
-			description: payload.description,
-			category: payload.category,
-			location: payload.location,
-		},
-		select: PUBLIC_ISSUE_SELECT,
-	});
+	return withIssueInvalidation(
+		prisma.issue.update({
+			where: { id },
+			data: {
+				title: payload.title,
+				description: payload.description,
+				category: payload.category,
+				location: payload.location,
+			},
+			select: PUBLIC_ISSUE_SELECT,
+		}),
+	);
 };
 
 const updateImage = async (
@@ -270,6 +297,7 @@ const updateImage = async (
 	}
 
 	await deleteCloudinaryImage(issue.imagePublicId);
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -289,6 +317,7 @@ const remove = async (user: AuthUser, id: string): Promise<void> => {
 
 	await prisma.issue.delete({ where: { id } });
 	await deleteCloudinaryImage(issue.imagePublicId);
+	await invalidateIssueCaches();
 };
 
 const assign = async (
@@ -315,11 +344,13 @@ const assign = async (
 		}
 	}
 
-	return prisma.issue.update({
-		where: { id },
-		data: { assigneeId: payload.personnelId },
-		select: PUBLIC_ISSUE_SELECT,
-	});
+	return withIssueInvalidation(
+		prisma.issue.update({
+			where: { id },
+			data: { assigneeId: payload.personnelId },
+			select: PUBLIC_ISSUE_SELECT,
+		}),
+	);
 };
 
 const PERSONNEL_TRANSITIONS: Record<string, string[]> = {
@@ -361,31 +392,33 @@ const changeStatus = async (
 	const now = new Date();
 	const isResolved = payload.status === "RESOLVED";
 
-	return prisma.$transaction(async (tx) => {
-		const updated = await tx.issue.update({
-			where: { id },
-			data: {
-				status: payload.status,
-				resolvedAt: isResolved ? now : null,
-				resolutionNote: isResolved
-					? (payload.resolutionNote ?? issue.resolutionNote ?? null)
-					: null,
-			},
-			select: PUBLIC_ISSUE_SELECT,
-		});
+	return withIssueInvalidation(
+		prisma.$transaction(async (tx) => {
+			const updated = await tx.issue.update({
+				where: { id },
+				data: {
+					status: payload.status,
+					resolvedAt: isResolved ? now : null,
+					resolutionNote: isResolved
+						? (payload.resolutionNote ?? issue.resolutionNote ?? null)
+						: null,
+				},
+				select: PUBLIC_ISSUE_SELECT,
+			});
 
-		await tx.issueHistory.create({
-			data: {
-				issueId: id,
-				changedById: user.id,
-				oldStatus: issue.status,
-				newStatus: payload.status,
-				note: payload.resolutionNote ?? null,
-			},
-		});
+			await tx.issueHistory.create({
+				data: {
+					issueId: id,
+					changedById: user.id,
+					oldStatus: issue.status,
+					newStatus: payload.status,
+					note: payload.resolutionNote ?? null,
+				},
+			});
 
-		return updated;
-	});
+			return updated;
+		}),
+	);
 };
 
 const changePriority = async (
@@ -394,11 +427,42 @@ const changePriority = async (
 ): Promise<PublicIssue> => {
 	await loadIssueForChange(id);
 
-	return prisma.issue.update({
-		where: { id },
-		data: { priority: payload.priority },
-		select: PUBLIC_ISSUE_SELECT,
-	});
+	return withIssueInvalidation(
+		prisma.issue.update({
+			where: { id },
+			data: { priority: payload.priority },
+			select: PUBLIC_ISSUE_SELECT,
+		}),
+	);
+};
+
+const publicStats = async () => {
+	return cacheAside(
+		"stats",
+		"public",
+		async () => {
+			const where: Prisma.IssueWhereInput = { moderationStatus: "VISIBLE" };
+			const [total, pending, inProgress, resolved] = await Promise.all([
+				prisma.issue.count({ where }),
+				prisma.issue.count({ where: { ...where, status: "PENDING" } }),
+				prisma.issue.count({ where: { ...where, status: "IN_PROGRESS" } }),
+				prisma.issue.count({ where: { ...where, status: "RESOLVED" } }),
+			]);
+
+			return {
+				total,
+				pending,
+				inProgress,
+				resolved,
+				statusDistribution: {
+					PENDING: pending,
+					IN_PROGRESS: inProgress,
+					RESOLVED: resolved,
+				},
+			};
+		},
+		config.cache_ttl_seconds * 5,
+	);
 };
 
 const stats = async (user: AuthUser) => {
@@ -451,6 +515,7 @@ export const IssueService = {
 	listAssigned,
 	getById,
 	history,
+	publicStats,
 	create,
 	update,
 	updateImage,

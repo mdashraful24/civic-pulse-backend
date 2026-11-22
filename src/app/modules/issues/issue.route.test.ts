@@ -179,6 +179,27 @@ describe("issue list queries", () => {
 		]);
 	});
 
+	it("returns visible-only public statistics", async () => {
+		const response = await get("/api/issues/public-stats");
+
+		expect(response.status).toBe(200);
+		expect(response.body.data).toEqual({
+			total: 7,
+			pending: 7,
+			inProgress: 7,
+			resolved: 7,
+			statusDistribution: {
+				PENDING: 7,
+				IN_PROGRESS: 7,
+				RESOLVED: 7,
+			},
+		});
+		expect(mocks.count).toHaveBeenCalledTimes(4);
+		for (const call of mocks.count.mock.calls) {
+			expect(call[0]?.where).toMatchObject({ moderationStatus: "VISIBLE" });
+		}
+	});
+
 	it("rejects invalid query values", async () => {
 		expect((await get("/api/issues?sort=random")).status).toBe(400);
 		expect((await get("/api/issues?page=0")).status).toBe(400);

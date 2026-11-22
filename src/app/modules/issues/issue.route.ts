@@ -47,6 +47,8 @@ router.post(
 	IssueController.create,
 );
 
+router.get("/public-stats", IssueController.publicStats);
+
 router.get(
 	"/:id",
 	validateParams(issueIdParamsSchema),

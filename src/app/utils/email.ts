@@ -2,14 +2,14 @@ import config from "../config";
 import { isEmailConfigured, transporter } from "../lib/nodemailer";
 import logger from "../logger";
 
-type RegistrationOtpEmail = {
+export type RegistrationOtpEmail = {
 	to: string;
 	name: string;
 	otp: string;
 	expiresInMinutes: number;
 };
 
-type PasswordResetOtpEmail = RegistrationOtpEmail;
+export type PasswordResetOtpEmail = RegistrationOtpEmail;
 
 export const sendRegistrationOtpEmail = async ({
 	to,

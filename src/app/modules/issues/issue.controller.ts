@@ -55,6 +55,17 @@ const listAssigned = catchAsync(async (req, res) => {
 	});
 });
 
+const publicStats = catchAsync(async (_req, res) => {
+	const result = await IssueService.publicStats();
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Public issue statistics retrieved.",
+		data: result,
+	});
+});
+
 const getById = catchAsync(async (req, res) => {
 	const issue = await IssueService.getById(req.params.id);
 
@@ -196,6 +207,7 @@ export const IssueController = {
 	list,
 	listMine,
 	listAssigned,
+	publicStats,
 	getById,
 	history,
 	create,

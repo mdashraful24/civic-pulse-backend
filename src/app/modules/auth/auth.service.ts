@@ -5,14 +5,15 @@ import {
 	deleteCloudinaryImage,
 	uploadImageToCloudinary,
 } from "../../lib/cloudinary";
+import {
+	enqueuePasswordResetOtpEmail,
+	enqueueRegistrationOtpEmail,
+} from "../../jobs/email.queue";
+import { invalidateIssueCaches } from "../issues/issue.service";
 import { prisma } from "../../lib/prisma";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
 import { parseDuration } from "../../utils/duration";
-import {
-	sendPasswordResetOtpEmail,
-	sendRegistrationOtpEmail,
-} from "../../utils/email";
 import {
 	createSessionId,
 	hashToken,
@@ -238,7 +239,7 @@ const register = async (
 		throw error;
 	}
 
-	await sendRegistrationOtpEmail({
+	await enqueueRegistrationOtpEmail({
 		to: email,
 		name,
 		otp,
@@ -391,7 +392,7 @@ const resendOtp = async (
 		config.registration_session_expires_in_seconds,
 	);
 
-	await sendRegistrationOtpEmail({
+	await enqueueRegistrationOtpEmail({
 		to: email,
 		name: pending.name,
 		otp,
@@ -626,6 +627,7 @@ const updateImage = async (
 	}
 
 	await deleteCloudinaryImage(current.imagePublicId);
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -647,6 +649,7 @@ const removeImage = async (userId: string): Promise<PublicUser> => {
 	});
 
 	await deleteCloudinaryImage(current.imagePublicId);
+	await invalidateIssueCaches();
 
 	return updated;
 };
@@ -687,7 +690,7 @@ const forgotPassword = async (
 	]);
 
 	if (recipient) {
-		await sendPasswordResetOtpEmail({
+		await enqueuePasswordResetOtpEmail({
 			to: email,
 			name: recipient.name,
 			otp,
