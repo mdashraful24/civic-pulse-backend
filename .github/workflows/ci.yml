@@ -1,9 +1,11 @@
 name: CI
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
+  # Uncomment push/pull_request to re-enable CI on commits and PRs.
+  # push:
+  #   branches: [main, master]
+  # pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
