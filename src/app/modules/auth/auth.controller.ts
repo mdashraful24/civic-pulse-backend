@@ -1,5 +1,6 @@
 import type { Request } from "express";
 import httpStatus from "http-status";
+import config from "../../config";
 import { currentUser } from "../../middlewares/auth";
 import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
@@ -11,8 +12,11 @@ import {
 import { sanitizeText } from "../../utils/sanitize";
 import { sendResponse } from "../../utils/sendResponse";
 import { AuthService } from "./auth.service";
+import * as GoogleOAuthService from "./auth.oauth.service";
+import { isGoogleConfigured } from "./google.provider";
 import type {
 	ChangePasswordInput,
+	GoogleCallbackQuery,
 	ForgotPasswordInput,
 	LoginInput,
 	RegisterInput,
@@ -195,6 +199,45 @@ const changePassword = catchAsync(async (req, res) => {
 	});
 });
 
+const googleStatus = catchAsync(async (_req, res) => {
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Google sign-in status retrieved.",
+		data: { enabled: isGoogleConfigured() },
+	});
+});
+
+const googleStart = catchAsync(async (_req, res) => {
+	const url = await GoogleOAuthService.startGoogleSignIn();
+	res.redirect(httpStatus.FOUND, url);
+});
+
+const googleCallback = catchAsync(async (req, res) => {
+	const redirectToComplete = (status: "success" | "error", reason?: string) => {
+		const url = new URL("/auth/google/complete", config.frontend_url);
+		url.searchParams.set("status", status);
+		if (reason) url.searchParams.set("reason", reason);
+		return url.toString();
+	};
+
+	try {
+		const result = await GoogleOAuthService.completeGoogleSignIn(
+			req.validatedQuery as GoogleCallbackQuery,
+			sessionContext(req),
+		);
+
+		setAuthCookies(res, result);
+		res.redirect(httpStatus.SEE_OTHER, redirectToComplete("success"));
+	} catch (error) {
+		const reason =
+			error instanceof AppError && error.statusCode >= 500
+				? "unavailable"
+				: "failed";
+		res.redirect(httpStatus.SEE_OTHER, redirectToComplete("error", reason));
+	}
+});
+
 export const AuthController = {
 	register,
 	verifyEmail,
@@ -208,4 +251,7 @@ export const AuthController = {
 	changePassword,
 	forgotPassword,
 	resetPassword,
+	googleStatus,
+	googleStart,
+	googleCallback,
 };

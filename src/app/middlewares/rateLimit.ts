@@ -29,6 +29,15 @@ export const loginLimiter = rateLimit({
 	),
 });
 
+export const oauthLimiter = rateLimit({
+	...base,
+	windowMs: 15 * 60 * 1000,
+	limit: 20,
+	message: tooMany(
+		"Too many sign-in attempts. Please try again in 15 minutes.",
+	),
+});
+
 export const registerLimiter = rateLimit({
 	...base,
 	windowMs: 60 * 60 * 1000,

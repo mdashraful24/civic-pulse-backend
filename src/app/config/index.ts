@@ -43,6 +43,11 @@ const config = {
 
 	frontend_url: optional("FRONTEND_URL", "http://localhost:3000"),
 
+	google_client_id: optional("GOOGLE_CLIENT_ID", ""),
+	google_client_secret: optional("GOOGLE_CLIENT_SECRET", ""),
+	google_redirect_uri: optional("GOOGLE_REDIRECT_URI", ""),
+	oauth_state_ttl_seconds: optionalNumber("OAUTH_STATE_TTL_SECONDS", 600),
+
 	bcrypt_salt_rounds: optionalNumber("BCRYPT_SALT_ROUNDS", 12),
 
 	jwt_access_secret: optional("JWT_ACCESS_SECRET", ""),
@@ -248,6 +253,24 @@ export const assertRuntimeConfig = () => {
 
 	if (!["inline", "queue"].includes(config.jobs_mode)) {
 		throw new Error('JOBS_MODE must be one of "inline" or "queue".');
+	}
+
+	const googleValues = [
+		config.google_client_id,
+		config.google_client_secret,
+		config.google_redirect_uri,
+	].filter(Boolean);
+	if (googleValues.length > 0 && googleValues.length !== 3) {
+		throw new Error(
+			"GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI must be provided together.",
+		);
+	}
+
+	if (
+		!Number.isInteger(config.oauth_state_ttl_seconds) ||
+		config.oauth_state_ttl_seconds <= 0
+	) {
+		throw new Error("OAUTH_STATE_TTL_SECONDS must be a positive integer.");
 	}
 
 	if (!["local", "openai", "gemini"].includes(config.ai_provider)) {

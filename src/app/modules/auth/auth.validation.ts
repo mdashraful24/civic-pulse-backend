@@ -73,6 +73,17 @@ export const resetPasswordSchema = z.strictObject({
 	newPassword: strongPasswordSchema,
 });
 
+export const googleCallbackQuerySchema = z
+	.object({
+		code: z.string().min(1).max(2048).optional(),
+		state: z
+			.string()
+			.regex(/^[\w-]{20,200}$/, "Invalid OAuth state.")
+			.optional(),
+		error: z.string().max(100).optional(),
+	})
+	.passthrough();
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
@@ -80,3 +91,4 @@ export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type GoogleCallbackQuery = z.infer<typeof googleCallbackQuerySchema>;

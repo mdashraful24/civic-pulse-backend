@@ -19,10 +19,11 @@ described in *Civic Pulse Project Proposal*:
 - the `User`, `Session`, `Issue` and `IssueHistory` models
 
 Registration sends a 6-digit code by email and the account is only created once
-that code is confirmed. Authentication itself remains **credential-based only**
-(email + password) — there is no OAuth, Google sign-in or other third-party
-identity provider. Email is used solely for the registration OTP; there are no
-marketing, push or notification emails.
+that code is confirmed. Authentication supports email/password and optional
+Google OAuth2 sign-in. Google credentials are entirely server-side; the flow uses
+PKCE and single-use Redis state, links only verified Google emails, and reuses the
+same HTTP-only session cookies. Email is used for registration/reset OTPs and
+transactional job emails; there are no marketing, push or notification emails.
 
 ---
 
@@ -143,6 +144,10 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `CLOUDINARY_CLOUD_NAME` | unset | Cloudinary cloud name (all three required for uploads) |
 | `CLOUDINARY_API_KEY` | unset | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | unset | Cloudinary API secret |
+| `GOOGLE_CLIENT_ID` | unset | Google OAuth client id (all three Google variables required together) |
+| `GOOGLE_CLIENT_SECRET` | unset | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | unset | Backend callback URL registered with Google |
+| `OAUTH_STATE_TTL_SECONDS` | `600` | Lifetime of single-use OAuth state in Redis |
 | `SEED_ON_START` | `false` | Opt in to demo accounts and demo issues on boot; rejected in production |
 | `SEED_*` | see `.env.example` | Demo account name / email / password |
 
@@ -154,7 +159,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 
 ### 3. Start Redis
 
-Registration OTPs, password-reset codes, login-failure counters and lock keys are kept in Redis:
+Registration OTPs, password-reset codes, login-failure counters, lock keys, public response caches, job metadata and single-use Google OAuth state are kept in Redis:
 
 ```bash
 redis-server
@@ -351,6 +356,9 @@ Errors use `{ "success": false, "statusCode": 4xx, "message": "...", "errors": [
 | `POST` | `/api/auth/verify-email` | public | Confirm the OTP and create the account |
 | `POST` | `/api/auth/resend-otp` | public | Send a new registration OTP |
 | `POST` | `/api/auth/login` | public | Log in and receive auth cookies |
+| `GET` | `/api/auth/google/status` | public | Check whether Google sign-in is enabled |
+| `GET` | `/api/auth/google` | public | Start the Google OAuth2/PKCE flow |
+| `GET` | `/api/auth/google/callback` | public | Complete sign-in, set cookies and redirect to the client |
 | `POST` | `/api/auth/refresh-token` | refresh cookie | Rotate tokens |
 | `POST` | `/api/auth/logout` | refresh cookie (optional) | End the session |
 | `GET` | `/api/auth/me` | access token | Current user profile |
@@ -419,6 +427,20 @@ curl -X POST http://localhost:5000/api/auth/register \
 - `401` for wrong credentials, `403` if the account is blocked or its email is
   not verified.
 - Limited to 10 **failed** attempts per IP per 15 minutes.
+
+#### Google sign-in
+
+`GET /api/auth/google/status` returns `{ "enabled": true }` only when all Google
+OAuth variables are configured. `GET /api/auth/google` stores single-use state
+and a PKCE verifier in Redis, then redirects to Google. Configure
+`GOOGLE_REDIRECT_URI` as the backend callback, typically
+`http://localhost:5000/api/auth/google/callback`.
+
+`GET /api/auth/google/callback` exchanges the code, requires a verified Google
+email, links an existing verified account or creates a new `CITIZEN` account,
+sets the same auth cookies as password login, and redirects to
+`{FRONTEND_URL}/auth/google/complete?status=success`. Blocked, deleted,
+unverified and denied attempts redirect with `status=error`.
 
 #### `POST /api/auth/refresh-token`
 

@@ -150,7 +150,7 @@ const getById = async (id: string): Promise<PublicIssue> => {
 const history = async (id: string): Promise<PublicIssueHistory[]> => {
 	return cacheAside("issue-history", id, async () => {
 		const issue = await prisma.issue.findUnique({
-			where: { id },
+			where: { id, moderationStatus: "VISIBLE" },
 			select: { id: true },
 		});
 

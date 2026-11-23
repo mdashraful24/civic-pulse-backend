@@ -16,6 +16,7 @@ const issue = {
 const mocks = vi.hoisted(() => ({
 	findMany: vi.fn(),
 	count: vi.fn(),
+	history: vi.fn(),
 }));
 
 vi.mock("../../lib/prisma", () => ({
@@ -24,6 +25,9 @@ vi.mock("../../lib/prisma", () => ({
 			findMany: mocks.findMany,
 			count: mocks.count,
 			findUnique: mocks.findMany,
+		},
+		issueHistory: {
+			findMany: mocks.history,
 		},
 	},
 }));
@@ -95,6 +99,7 @@ describe("issue list queries", () => {
 		vi.clearAllMocks();
 		mocks.findMany.mockResolvedValue([issue]);
 		mocks.count.mockResolvedValue(7);
+		mocks.history.mockResolvedValue([]);
 	});
 
 	it("uses visible-only scope and stable default pagination", async () => {
@@ -198,6 +203,16 @@ describe("issue list queries", () => {
 		for (const call of mocks.count.mock.calls) {
 			expect(call[0]?.where).toMatchObject({ moderationStatus: "VISIBLE" });
 		}
+	});
+
+	it("keeps public issue history limited to visible issues", async () => {
+		const response = await get(`/api/issues/${issue.id}/history`);
+
+		expect(response.status).toBe(200);
+		expect(mocks.findMany.mock.calls.at(-1)?.[0]?.where).toEqual({
+			id: issue.id,
+			moderationStatus: "VISIBLE",
+		});
 	});
 
 	it("rejects invalid query values", async () => {

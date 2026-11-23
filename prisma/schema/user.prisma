@@ -25,7 +25,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions Session[]
+  sessions       Session[]
+  oauthAccounts OAuthAccount[]
 
   reportedIssues Issue[]        @relation("ReportedIssues")
   assignedIssues Issue[]        @relation("AssignedIssues")

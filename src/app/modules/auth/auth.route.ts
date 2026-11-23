@@ -4,17 +4,20 @@ import { requireAuth } from "../../middlewares/auth";
 import {
 	authLimiter,
 	loginLimiter,
+	oauthLimiter,
 	otpLimiter,
 	registerLimiter,
 } from "../../middlewares/rateLimit";
 import {
 	parseJsonBodyField,
 	validateBody,
+	validateQuery,
 } from "../../middlewares/validateRequest";
 import { AuthController } from "./auth.controller";
 import {
 	changePasswordSchema,
 	forgotPasswordSchema,
+	googleCallbackQuerySchema,
 	loginSchema,
 	registerSchema,
 	resendOtpSchema,
@@ -23,6 +26,18 @@ import {
 } from "./auth.validation";
 
 const router = Router();
+
+router.get("/google/status", authLimiter, AuthController.googleStatus);
+
+router.get("/google", authLimiter, oauthLimiter, AuthController.googleStart);
+
+router.get(
+	"/google/callback",
+	authLimiter,
+	oauthLimiter,
+	validateQuery(googleCallbackQuerySchema),
+	AuthController.googleCallback,
+);
 
 router.post(
 	"/register",

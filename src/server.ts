@@ -2,6 +2,7 @@ import { seedIssues } from "../prisma/all-seeds/issues.seed";
 import { seedUsers } from "../prisma/all-seeds/seed";
 import app from "./app";
 import config, { assertRuntimeConfig } from "./app/config";
+import { isGoogleConfigured } from "./app/modules/auth/google.provider";
 import { closeEmailQueue } from "./app/jobs/email.queue";
 import { isCloudinaryConfigured } from "./app/lib/cloudinary";
 import { isEmailConfigured, transporter } from "./app/lib/nodemailer";
@@ -43,6 +44,12 @@ const start = async () => {
 	if (!isCloudinaryConfigured) {
 		logger.warn(
 			"Cloudinary is not configured. Issue image uploads will return 503.",
+		);
+	}
+
+	if (!isGoogleConfigured()) {
+		logger.warn(
+			"Google OAuth is not configured. Google sign-in endpoints will return 503.",
 		);
 	}
 

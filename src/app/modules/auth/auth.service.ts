@@ -44,7 +44,8 @@ import type {
 } from "./auth.interface";
 import { PUBLIC_USER_SELECT } from "./auth.interface";
 
-const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+export const normalizeEmail = (email: string): string =>
+	email.trim().toLowerCase();
 
 const otpKey = (email: string) => `civicpulse-registration-otp:${email}`;
 const registrationKey = (email: string) =>
@@ -139,7 +140,7 @@ const otpExpiry = () => {
 	};
 };
 
-type TokenSubject = {
+export type TokenSubject = {
 	id: string;
 	name: string;
 	email: string;
@@ -147,7 +148,7 @@ type TokenSubject = {
 	tokenVersion: number;
 };
 
-const buildTokens = (
+export const buildTokens = (
 	user: TokenSubject,
 ): AuthTokens & { sessionId: string } => {
 	const sessionId = createSessionId();
@@ -171,7 +172,7 @@ const buildTokens = (
 	return { accessToken, refreshToken, sessionId };
 };
 
-const buildSessionData = (
+export const buildSessionData = (
 	user: TokenSubject,
 	tokens: AuthTokens & { sessionId: string },
 	ctx: SessionContext,
