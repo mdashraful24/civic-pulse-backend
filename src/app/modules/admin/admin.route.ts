@@ -16,9 +16,11 @@ import {
 	appSettingSchema,
 	changeRoleSchema,
 	changeStatusSchema,
+	createAdminUserSchema,
 	createFlagSchema,
 	moderationFlagsQuerySchema,
 	resolveFlagSchema,
+	updateAdminUserSchema,
 } from "./admin.validation";
 
 const router = Router();
@@ -29,6 +31,14 @@ router.get(
 	requireRole("ADMIN"),
 	validateQuery(adminUsersQuerySchema),
 	AdminController.listUsers,
+);
+
+router.post(
+	"/users",
+	requireAuth,
+	requireRole("ADMIN"),
+	validateBody(createAdminUserSchema),
+	AdminController.createUser,
 );
 
 router.patch(
@@ -80,6 +90,15 @@ router.post(
 	requireRole("ADMIN"),
 	validateParams(adminUserParamsSchema),
 	AdminController.terminateSessions,
+);
+
+router.patch(
+	"/users/:id",
+	requireAuth,
+	requireRole("ADMIN"),
+	validateParams(adminUserParamsSchema),
+	validateBody(updateAdminUserSchema),
+	AdminController.updateUser,
 );
 
 router.delete(

@@ -1,11 +1,15 @@
 import { z } from "zod";
+import { BCRYPT_MAX_BYTES } from "../../utils/password";
 import { sanitizedString } from "../../utils/sanitizedString";
+
+const roleSchema = z.enum(["CITIZEN", "ADMIN", "PERSONNEL"]);
+const activeUserStatusSchema = z.enum(["ACTIVE", "BLOCKED"]);
 
 export const adminUsersQuerySchema = z.object({
 	search: sanitizedString(
 		z.string().trim().max(120, "Search must not exceed 120 characters."),
 	).optional(),
-	role: z.enum(["CITIZEN", "ADMIN", "PERSONNEL"]).optional(),
+	role: roleSchema.optional(),
 	status: z.enum(["ACTIVE", "BLOCKED", "DELETED"]).optional(),
 	page: z.coerce.number().int().min(1).default(1),
 	limit: z.coerce.number().int().min(1).max(100).default(10),
@@ -19,14 +23,63 @@ export const adminUserParamsSchema = z.object({
 
 export const adminFlagParamsSchema = adminUserParamsSchema;
 
+const adminUserNameSchema = sanitizedString(
+	z
+		.string()
+		.trim()
+		.min(2, "Name must be at least 2 characters long.")
+		.max(80, "Name must not exceed 80 characters."),
+);
+const adminUserEmailSchema = z
+	.string()
+	.trim()
+	.toLowerCase()
+	.min(1, "Email is required.")
+	.max(254, "Email must not exceed 254 characters.")
+	.pipe(z.email({ message: "Please provide a valid email address." }));
+const adminUserPasswordSchema = z
+	.string()
+	.min(8, "Password must be at least 8 characters long.")
+	.max(128, "Password must not exceed 128 characters.")
+	.refine(
+		(value) => Buffer.byteLength(value, "utf8") <= BCRYPT_MAX_BYTES,
+		`Password must not exceed ${BCRYPT_MAX_BYTES} bytes.`,
+	)
+	.regex(/[A-Za-z]/, "Password must contain at least one letter.")
+	.regex(/\d/, "Password must contain at least one number.");
+
+export const createAdminUserSchema = z.strictObject({
+	name: adminUserNameSchema,
+	email: adminUserEmailSchema,
+	password: adminUserPasswordSchema,
+	role: roleSchema.default("CITIZEN"),
+	status: activeUserStatusSchema.default("ACTIVE"),
+});
+
+export type CreateAdminUserInput = z.infer<typeof createAdminUserSchema>;
+
+export const updateAdminUserSchema = z
+	.strictObject({
+		name: adminUserNameSchema.optional(),
+		email: adminUserEmailSchema.optional(),
+		password: adminUserPasswordSchema.optional(),
+		role: roleSchema.optional(),
+		status: activeUserStatusSchema.optional(),
+	})
+	.refine((value) => Object.keys(value).length > 0, {
+		message: "Provide at least one field to update.",
+	});
+
+export type UpdateAdminUserInput = z.infer<typeof updateAdminUserSchema>;
+
 export const changeRoleSchema = z.object({
-	role: z.enum(["CITIZEN", "ADMIN", "PERSONNEL"]),
+	role: roleSchema,
 });
 
 export type ChangeRoleInput = z.infer<typeof changeRoleSchema>;
 
 export const changeStatusSchema = z.object({
-	status: z.enum(["ACTIVE", "BLOCKED"]),
+	status: activeUserStatusSchema,
 });
 
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;

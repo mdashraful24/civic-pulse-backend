@@ -85,8 +85,14 @@ vi.mock("../../lib/prisma", () => ({
 	prisma: {
 		user: {
 			findFirst: vi.fn(async () => fixtures.user),
+			findUnique: vi.fn(async () => null),
 			findMany: vi.fn(async () => [fixtures.user]),
 			count: vi.fn(async () => 2),
+			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+				...fixtures.user,
+				id: "66666666-6666-4666-8666-666666666666",
+				...data,
+			})),
 			update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
 				...fixtures.user,
 				...data,
@@ -288,6 +294,94 @@ describe("admin user controls", () => {
 			.send({ role: "ADMIN" });
 
 		expect(response.status).toBe(403);
+	});
+
+	it("creates a user and records the action", async () => {
+		const response = await admin("post", "/api/admin/users").send({
+			name: "New Person",
+			email: "New.Person@Example.com",
+			password: "Secure-1234",
+			role: "PERSONNEL",
+			status: "ACTIVE",
+		});
+
+		expect(response.status).toBe(201);
+		expect(response.body.data.email).toBe("new.person@example.com");
+		expect(prisma.user.create).toHaveBeenCalled();
+		expect(prisma.adminActionLog.create).toHaveBeenCalled();
+	});
+
+	it("rejects a duplicate email on create", async () => {
+		vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(
+			fixtures.user as never,
+		);
+
+		const response = await admin("post", "/api/admin/users").send({
+			name: "New Person",
+			email: "taylor@civicpulse.local",
+			password: "Secure-1234",
+		});
+
+		expect(response.status).toBe(409);
+		expect(prisma.user.create).not.toHaveBeenCalled();
+	});
+
+	it("rejects an invalid create payload", async () => {
+		const response = await admin("post", "/api/admin/users").send({
+			name: "N",
+			email: "not-an-email",
+			password: "short",
+		});
+
+		expect(response.status).toBe(400);
+	});
+
+	it("updates user details", async () => {
+		const response = await admin("patch", `/api/admin/users/${targetId}`).send({
+			name: "Updated Person",
+			email: "updated@example.com",
+			role: "PERSONNEL",
+			status: "BLOCKED",
+		});
+
+		expect(response.status).toBe(200);
+		expect(response.body.data.name).toBe("Updated Person");
+		expect(response.body.data.status).toBe("BLOCKED");
+		expect(prisma.session.updateMany).toHaveBeenCalled();
+	});
+
+	it("revokes sessions when an admin sets a new password", async () => {
+		const response = await admin("patch", `/api/admin/users/${targetId}`).send({
+			password: "Secure-1234",
+		});
+
+		expect(response.status).toBe(200);
+		expect(prisma.session.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: {
+					revokedAt: expect.any(Date),
+					revokedReason: "admin-password-updated",
+				},
+			}),
+		);
+	});
+
+	it("rejects an empty update payload", async () => {
+		const response = await admin("patch", `/api/admin/users/${targetId}`).send(
+			{},
+		);
+
+		expect(response.status).toBe(400);
+	});
+
+	it("prevents self role changes through general edits", async () => {
+		const response = await request(app)
+			.patch(`/api/admin/users/${actorId}`)
+			.set("x-test-user", actorId)
+			.set("x-test-role", "ADMIN")
+			.send({ role: "CITIZEN" });
+
+		expect(response.status).toBe(400);
 	});
 });
 

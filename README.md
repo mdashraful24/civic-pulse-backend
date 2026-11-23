@@ -144,10 +144,10 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `CLOUDINARY_CLOUD_NAME` | unset | Cloudinary cloud name (all three required for uploads) |
 | `CLOUDINARY_API_KEY` | unset | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | unset | Cloudinary API secret |
-| `GOOGLE_CLIENT_ID` | unset | Google OAuth client id (all three Google variables required together) |
-| `GOOGLE_CLIENT_SECRET` | unset | Google OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | unset | Backend callback URL registered with Google |
-| `OAUTH_STATE_TTL_SECONDS` | `600` | Lifetime of single-use OAuth state in Redis |
+| `GOOGLE_CLIENT_ID` | unset | Public Google client id; enough for ID-token sign-in |
+| `GOOGLE_CLIENT_SECRET` | unset | Optional; only needed for the redirect/PKCE flow |
+| `GOOGLE_REDIRECT_URI` | unset | Optional backend callback for the redirect/PKCE flow |
+| `OAUTH_STATE_TTL_SECONDS` | `600` | Optional lifetime of redirect/PKCE state in Redis |
 | `SEED_ON_START` | `false` | Opt in to demo accounts and demo issues on boot; rejected in production |
 | `SEED_*` | see `.env.example` | Demo account name / email / password |
 
@@ -430,10 +430,16 @@ curl -X POST http://localhost:5000/api/auth/register \
 
 #### Google sign-in
 
-`GET /api/auth/google/status` returns `{ "enabled": true }` only when all Google
-OAuth variables are configured. `GET /api/auth/google` stores single-use state
-and a PKCE verifier in Redis, then redirects to Google. Configure
-`GOOGLE_REDIRECT_URI` as the backend callback, typically
+`GET /api/auth/google/status` reports `enabled`, `idTokenEnabled` and
+`redirectEnabled`. `POST /api/auth/google` accepts `{ "idToken": "..." }` from
+Google Identity Services, verifies it with `GOOGLE_CLIENT_ID`, links or creates
+a verified account and sets the same auth cookies as password login. The client
+uses `NEXT_PUBLIC_GOOGLE_CLIENT_ID` with the same value; no client secret,
+redirect URI or callback route is needed for this flow.
+
+The optional redirect/PKCE flow uses `GET /api/auth/google`, which stores
+single-use state and a PKCE verifier in Redis, then redirects to Google.
+Configure `GOOGLE_REDIRECT_URI` as the backend callback, typically
 `http://localhost:5000/api/auth/google/callback`.
 
 `GET /api/auth/google/callback` exchanges the code, requires a verified Google

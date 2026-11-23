@@ -62,10 +62,20 @@ vi.mock("./google.provider", () => ({
 		email_verified: true,
 		name: "Taylor Citizen",
 	})),
+	verifyGoogleIdToken: vi.fn(async () => ({
+		sub: "google-user-1",
+		email: "user@example.com",
+		email_verified: true,
+		name: "Taylor Citizen",
+	})),
 }));
 
-import { completeGoogleSignIn, startGoogleSignIn } from "./auth.oauth.service";
-import { exchangeGoogleCode } from "./google.provider";
+import {
+	completeGoogleIdTokenSignIn,
+	completeGoogleSignIn,
+	startGoogleSignIn,
+} from "./auth.oauth.service";
+import { exchangeGoogleCode, verifyGoogleIdToken } from "./google.provider";
 
 const callbackInput = { code: "code-123", state: "a".repeat(43) };
 const ctx = { userAgent: "test-agent", ipAddress: "127.0.0.1" };
@@ -76,6 +86,12 @@ beforeEach(() => {
 	prismaMock.oAuthAccount.findUnique.mockResolvedValue(null);
 	prismaMock.oAuthAccount.create.mockResolvedValue({});
 	vi.mocked(exchangeGoogleCode).mockResolvedValue({
+		sub: "google-user-1",
+		email: "user@example.com",
+		email_verified: true,
+		name: "Taylor Citizen",
+	});
+	vi.mocked(verifyGoogleIdToken).mockResolvedValue({
 		sub: "google-user-1",
 		email: "user@example.com",
 		email_verified: true,
@@ -162,5 +178,31 @@ describe("Google OAuth service", () => {
 			completeGoogleSignIn({ error: "access_denied" }, ctx),
 		).rejects.toMatchObject({ statusCode: 401 });
 		expect(exchangeGoogleCode).not.toHaveBeenCalled();
+	});
+
+	it("creates a session from a verified Google ID token", async () => {
+		const result = await completeGoogleIdTokenSignIn("id-token", ctx);
+
+		expect(verifyGoogleIdToken).toHaveBeenCalledWith("id-token");
+		expect(result.user).toMatchObject({
+			email: "user@example.com",
+			emailVerified: true,
+		});
+		expect(prismaMock.session.create).toHaveBeenCalled();
+	});
+
+	it("links an ID token to an existing verified user by email", async () => {
+		prismaMock.user.findUnique.mockResolvedValue(fixtures.user);
+
+		const result = await completeGoogleIdTokenSignIn("id-token", ctx);
+
+		expect(result.user.id).toBe(fixtures.user.id);
+		expect(prismaMock.oAuthAccount.create).toHaveBeenCalledWith({
+			data: {
+				userId: fixtures.user.id,
+				provider: "GOOGLE",
+				providerAccountId: "google-user-1",
+			},
+		});
 	});
 });

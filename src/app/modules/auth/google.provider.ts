@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import { OAuth2Client } from "google-auth-library";
 import config from "../../config";
+import logger from "../../logger";
 import { redisClient } from "../../lib/redis";
 import { AppError } from "../../utils/AppError";
 
@@ -26,6 +28,9 @@ export const isGoogleConfigured = (): boolean =>
 			config.google_client_secret &&
 			config.google_redirect_uri,
 	);
+
+export const isGoogleIdTokenConfigured = (): boolean =>
+	Boolean(config.google_client_id);
 
 const stateKey = (state: string) => `civicpulse-oauth-state:${state}`;
 
@@ -166,6 +171,53 @@ const fetchGoogleProfile = async (
 	}
 
 	return (await response.json()) as GoogleProfile;
+};
+
+export const verifyGoogleIdToken = async (
+	idToken: string,
+): Promise<GoogleProfile> => {
+	if (!isGoogleIdTokenConfigured()) {
+		throw new AppError(503, "Google sign-in is not configured on this server.");
+	}
+
+	let payload: GoogleProfile;
+
+	try {
+		const client = new OAuth2Client({ clientId: config.google_client_id });
+		const ticket = await client.verifyIdToken({
+			idToken,
+			audience: config.google_client_id,
+		});
+		const claims = ticket.getPayload();
+
+		payload = {
+			sub: claims?.sub,
+			email: claims?.email,
+			email_verified: claims?.email_verified,
+			name: claims?.name,
+			aud: claims?.aud,
+		};
+	} catch (error) {
+		logger.warn(
+			`Google ID token verification failed: ${error instanceof Error ? error.message : "unknown error"}`,
+		);
+		throw AppError.unauthorized("Invalid or expired Google sign-in token.");
+	}
+
+	if (
+		typeof payload.sub !== "string" ||
+		!payload.sub ||
+		typeof payload.email !== "string" ||
+		payload.email_verified !== true
+	) {
+		throw AppError.forbidden("A verified Google email is required to sign in.");
+	}
+
+	if (payload.aud !== undefined && payload.aud !== config.google_client_id) {
+		throw AppError.unauthorized("Invalid or expired Google sign-in token.");
+	}
+
+	return payload;
 };
 
 export const exchangeGoogleCode = async (

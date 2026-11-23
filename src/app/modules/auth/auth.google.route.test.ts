@@ -5,11 +5,13 @@ import app from "../../../app";
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		complete: vi.fn(),
+		completeIdToken: vi.fn(),
 	},
 }));
 
 vi.mock("./google.provider", () => ({
 	isGoogleConfigured: vi.fn(() => true),
+	isGoogleIdTokenConfigured: vi.fn(() => true),
 }));
 
 vi.mock("./auth.oauth.service", () => ({
@@ -17,11 +19,17 @@ vi.mock("./auth.oauth.service", () => ({
 		async () => "https://accounts.google.com/o/oauth2/v2/auth?state=test",
 	),
 	completeGoogleSignIn: mocks.complete,
+	completeGoogleIdTokenSignIn: mocks.completeIdToken,
 }));
 
 beforeEach(() => {
 	vi.clearAllMocks();
 	mocks.complete.mockResolvedValue({
+		user: { id: "11111111-1111-4111-8111-111111111111" },
+		accessToken: "access-token",
+		refreshToken: "refresh-token",
+	});
+	mocks.completeIdToken.mockResolvedValue({
 		user: { id: "11111111-1111-4111-8111-111111111111" },
 		accessToken: "access-token",
 		refreshToken: "refresh-token",
@@ -33,7 +41,32 @@ describe("Google OAuth routes", () => {
 		const response = await request(app).get("/api/auth/google/status");
 
 		expect(response.status).toBe(200);
-		expect(response.body.data).toEqual({ enabled: true });
+		expect(response.body.data).toEqual({
+			enabled: true,
+			idTokenEnabled: true,
+			redirectEnabled: true,
+		});
+	});
+
+	it("exchanges a Google ID token and sets session cookies", async () => {
+		const response = await request(app)
+			.post("/api/auth/google")
+			.send({ idToken: "id-token" });
+
+		expect(response.status).toBe(200);
+		expect(response.body.data.id).toBe("11111111-1111-4111-8111-111111111111");
+		expect(response.headers["set-cookie"]).toBeDefined();
+		expect(mocks.completeIdToken).toHaveBeenCalledWith(
+			"id-token",
+			expect.any(Object),
+		);
+	});
+
+	it("rejects a missing Google ID token", async () => {
+		const response = await request(app).post("/api/auth/google").send({});
+
+		expect(response.status).toBe(400);
+		expect(mocks.completeIdToken).not.toHaveBeenCalled();
 	});
 
 	it("redirects to the Google consent screen", async () => {

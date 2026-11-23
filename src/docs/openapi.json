@@ -1,0 +1,3283 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "CivicPulse API",
+		"version": "1.0.0",
+		"description": "Machine-readable contract for the CivicPulse Express API. Auth cookies are HTTP-only; unsafe cookie-bearing requests additionally require a matching Origin or Referer. The API prefix is configurable through API_PREFIX, defaulting to /api."
+	},
+	"servers": [
+		{
+			"url": "http://localhost:5000",
+			"description": "Local API"
+		}
+	],
+	"tags": [
+		{ "name": "Health", "description": "Liveness information" },
+		{ "name": "Auth", "description": "Credential and Google OAuth sessions" },
+		{
+			"name": "Issues",
+			"description": "Public and role-scoped issue workflows"
+		},
+		{ "name": "Dashboard", "description": "Role-scoped dashboard statistics" },
+		{ "name": "Admin", "description": "Administration and moderation" },
+		{
+			"name": "AI",
+			"description": "Local or external AI-assisted capabilities"
+		}
+	],
+	"paths": {
+		"/health": {
+			"get": {
+				"tags": ["Health"],
+				"summary": "Service health",
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Service is running",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "object",
+													"required": ["uptime"],
+													"properties": {
+														"uptime": { "type": "number", "format": "double" }
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/register": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Start registration and send an email OTP",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/RegisterRequest" }
+						},
+						"multipart/form-data": {
+							"schema": {
+								"type": "object",
+								"required": ["body"],
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "JSON string containing RegisterRequest"
+									},
+									"image": {
+										"type": "string",
+										"format": "binary",
+										"description": "Optional JPEG, PNG, WebP or GIF up to 5 MB"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Pending registration created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/RegistrationOtp"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"409": { "$ref": "#/components/responses/Conflict" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/verify-email": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Confirm a registration OTP and create the account",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/VerifyEmailRequest" }
+						}
+					}
+				},
+				"responses": {
+					"201": { "description": "Email verified and account created" },
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"409": { "$ref": "#/components/responses/Conflict" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/resend-otp": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Send a new registration OTP",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/EmailRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "New OTP sent",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/RegistrationOtp"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/forgot-password": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Send a password-reset OTP",
+				"description": "Always succeeds for well-formed emails to avoid account enumeration.",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/EmailRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Reset code dispatched when the account is eligible",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/PasswordResetOtp"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/reset-password": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Reset a password with an email OTP",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/ResetPasswordRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": { "description": "Password reset and sessions revoked" },
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/login": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Authenticate with email and password",
+				"description": "Sets cp_access_token and cp_refresh_token HTTP-only cookies.",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/LoginRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Authenticated",
+						"headers": {
+							"Set-Cookie": { "$ref": "#/components/headers/SetCookie" }
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"423": { "$ref": "#/components/responses/Locked" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/auth/google/status": {
+			"get": {
+				"tags": ["Auth"],
+				"summary": "Check whether Google sign-in is configured",
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Google sign-in availability",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/GoogleStatus" }
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/google": {
+			"get": {
+				"tags": ["Auth"],
+				"summary": "Start Google OAuth2 sign-in with PKCE",
+				"description": "Stores single-use state and the PKCE verifier in Redis, then redirects to Google.",
+				"security": [],
+				"responses": {
+					"302": {
+						"description": "Redirect to the Google consent screen",
+						"headers": {
+							"Location": { "$ref": "#/components/headers/Location" }
+						}
+					},
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			},
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Sign in with a Google ID token",
+				"description": "Verifies a Google Identity Services credential using only the configured Google client ID, then links or creates a verified account and sets auth cookies.",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/GoogleIdTokenRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Signed in with Google",
+						"headers": {
+							"Set-Cookie": { "$ref": "#/components/headers/SetCookie" }
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/google/callback": {
+			"get": {
+				"tags": ["Auth"],
+				"summary": "Complete Google OAuth2 sign-in",
+				"description": "Consumes state, exchanges the code, links or creates a verified account, sets auth cookies and redirects to the client completion page.",
+				"security": [],
+				"parameters": [
+					{
+						"name": "code",
+						"in": "query",
+						"required": false,
+						"description": "Google authorization code",
+						"schema": { "type": "string", "maxLength": 2048 }
+					},
+					{
+						"name": "state",
+						"in": "query",
+						"required": false,
+						"description": "Single-use state issued by /api/auth/google",
+						"schema": { "type": "string", "pattern": "^[\\w-]{20,200}$" }
+					},
+					{
+						"name": "error",
+						"in": "query",
+						"required": false,
+						"description": "Provider error code when the user denies access",
+						"schema": { "type": "string", "maxLength": 100 }
+					}
+				],
+				"responses": {
+					"303": {
+						"description": "Redirect to /auth/google/complete on the client",
+						"headers": {
+							"Location": { "$ref": "#/components/headers/Location" },
+							"Set-Cookie": { "$ref": "#/components/headers/SetCookie" }
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"429": { "$ref": "#/components/responses/RateLimited" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/auth/refresh-token": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Rotate the refresh token and session cookies",
+				"security": [{ "refreshCookie": [] }],
+				"responses": {
+					"200": {
+						"description": "Tokens rotated",
+						"headers": {
+							"Set-Cookie": { "$ref": "#/components/headers/SetCookie" }
+						},
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/auth/logout": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Revoke the active session and clear cookies",
+				"security": [{ "refreshCookie": [] }],
+				"responses": {
+					"200": { "description": "Logged out; always succeeds" }
+				}
+			}
+		},
+		"/api/auth/me": {
+			"get": {
+				"tags": ["Auth"],
+				"summary": "Get the current user",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Current user profile",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/auth/me/image": {
+			"patch": {
+				"tags": ["Auth"],
+				"summary": "Upload or replace the profile image",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": { "$ref": "#/components/requestBodies/ImageUpload" },
+				"responses": {
+					"200": {
+						"description": "Profile image updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			},
+			"delete": {
+				"tags": ["Auth"],
+				"summary": "Remove the profile image",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Profile image removed",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/auth/change-password": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Change the current password and revoke sessions",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["newPassword"],
+								"properties": {
+									"newPassword": {
+										"$ref": "#/components/schemas/StrongPassword"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": { "description": "Password changed and sessions revoked" },
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/issues": {
+			"get": {
+				"tags": ["Issues"],
+				"summary": "List visible issues",
+				"security": [],
+				"parameters": [
+					{ "$ref": "#/components/parameters/Search" },
+					{ "$ref": "#/components/parameters/Category" },
+					{ "$ref": "#/components/parameters/Priority" },
+					{ "$ref": "#/components/parameters/IssueStatus" },
+					{ "$ref": "#/components/parameters/Sort" },
+					{ "$ref": "#/components/parameters/Page" },
+					{ "$ref": "#/components/parameters/Limit" }
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated issue list",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/PublicIssue"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": ["Issues"],
+				"summary": "Report a new issue",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/CreateIssueRequest" }
+						},
+						"multipart/form-data": {
+							"schema": {
+								"type": "object",
+								"required": ["body"],
+								"properties": {
+									"body": {
+										"type": "string",
+										"description": "JSON string containing CreateIssueRequest"
+									},
+									"image": {
+										"type": "string",
+										"format": "binary",
+										"description": "Optional JPEG, PNG, WebP or GIF up to 5 MB"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Issue created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/issues/me": {
+			"get": {
+				"tags": ["Issues"],
+				"summary": "List issues reported by the current user",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{ "$ref": "#/components/parameters/Search" },
+					{ "$ref": "#/components/parameters/Category" },
+					{ "$ref": "#/components/parameters/Priority" },
+					{ "$ref": "#/components/parameters/IssueStatus" },
+					{ "$ref": "#/components/parameters/Sort" },
+					{ "$ref": "#/components/parameters/Page" },
+					{ "$ref": "#/components/parameters/Limit" }
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated issue list",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/PublicIssue"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/issues/assigned": {
+			"get": {
+				"tags": ["Issues"],
+				"summary": "List issues assigned to the current personnel user",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{ "$ref": "#/components/parameters/Search" },
+					{ "$ref": "#/components/parameters/Category" },
+					{ "$ref": "#/components/parameters/Priority" },
+					{ "$ref": "#/components/parameters/IssueStatus" },
+					{ "$ref": "#/components/parameters/Sort" },
+					{ "$ref": "#/components/parameters/Page" },
+					{ "$ref": "#/components/parameters/Limit" }
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated issue list",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/PublicIssue"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			}
+		},
+		"/api/issues/public-stats": {
+			"get": {
+				"tags": ["Issues"],
+				"summary": "Get public issue totals",
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Public issue statistics",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicStats" }
+											}
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/issues/{id}": {
+			"parameters": [{ "$ref": "#/components/parameters/Id" }],
+			"get": {
+				"tags": ["Issues"],
+				"summary": "Get one visible issue",
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Issue detail",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			},
+			"patch": {
+				"tags": ["Issues"],
+				"summary": "Update issue details",
+				"description": "Allowed for the reporter while the issue is PENDING, or for any administrator.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/UpdateIssueRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Issue updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			},
+			"delete": {
+				"tags": ["Issues"],
+				"summary": "Delete an issue",
+				"description": "Allowed for the reporter while the issue is PENDING, or for any administrator.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": { "description": "Issue deleted" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/issues/{id}/history": {
+			"get": {
+				"tags": ["Issues"],
+				"summary": "Get the status history of a visible issue",
+				"security": [],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"responses": {
+					"200": {
+						"description": "Ascending status history",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/IssueHistoryItem"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/issues/{id}/image": {
+			"patch": {
+				"tags": ["Issues"],
+				"summary": "Upload or replace an issue image",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": { "$ref": "#/components/requestBodies/ImageUpload" },
+				"responses": {
+					"200": {
+						"description": "Issue image updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			}
+		},
+		"/api/issues/{id}/assign": {
+			"patch": {
+				"tags": ["Issues"],
+				"summary": "Assign or unassign an issue",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["personnelId"],
+								"properties": {
+									"personnelId": {
+										"type": "string",
+										"format": "uuid",
+										"nullable": true,
+										"description": "Active personnel user id, or null to unassign"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Assignment updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/issues/{id}/status": {
+			"patch": {
+				"tags": ["Issues"],
+				"summary": "Change issue status",
+				"description": "Administrators may use any transition. Personnel may only advance assigned PENDING to IN_PROGRESS to RESOLVED.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/UpdateStatusRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Status updated and history recorded",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/issues/{id}/priority": {
+			"patch": {
+				"tags": ["Issues"],
+				"summary": "Change issue priority",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["priority"],
+								"properties": {
+									"priority": { "$ref": "#/components/schemas/IssuePriority" }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Priority updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/PublicIssue" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/dashboard/stats": {
+			"get": {
+				"tags": ["Dashboard"],
+				"summary": "Get role-scoped dashboard statistics",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Dashboard statistics",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/DashboardStats"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" }
+				}
+			}
+		},
+		"/api/admin/users": {
+			"get": {
+				"tags": ["Admin"],
+				"summary": "List users",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{ "$ref": "#/components/parameters/Search" },
+					{ "$ref": "#/components/parameters/Role" },
+					{ "$ref": "#/components/parameters/UserStatusParam" },
+					{ "$ref": "#/components/parameters/Page" },
+					{ "$ref": "#/components/parameters/Limit" }
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated user list",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": { "$ref": "#/components/schemas/AdminUser" }
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			},
+			"post": {
+				"tags": ["Admin"],
+				"summary": "Create a user",
+				"description": "Admin-created accounts are marked verified and can be assigned a role and status immediately.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["name", "email", "password"],
+								"properties": {
+									"name": { "type": "string", "minLength": 2, "maxLength": 80 },
+									"email": {
+										"type": "string",
+										"format": "email",
+										"maxLength": 254
+									},
+									"password": {
+										"type": "string",
+										"format": "password",
+										"minLength": 8,
+										"maxLength": 128
+									},
+									"role": {
+										"type": "string",
+										"enum": ["CITIZEN", "ADMIN", "PERSONNEL"],
+										"default": "CITIZEN"
+									},
+									"status": {
+										"type": "string",
+										"enum": ["ACTIVE", "BLOCKED"],
+										"default": "ACTIVE"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "User created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AdminUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"409": { "$ref": "#/components/responses/Conflict" }
+				}
+			}
+		},
+		"/api/admin/users/{id}/image": {
+			"parameters": [{ "$ref": "#/components/parameters/Id" }],
+			"patch": {
+				"tags": ["Admin"],
+				"summary": "Upload or replace a user image",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": { "$ref": "#/components/requestBodies/ImageUpload" },
+				"responses": {
+					"200": {
+						"description": "User image updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AdminUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"503": { "$ref": "#/components/responses/ServiceUnavailable" }
+				}
+			},
+			"delete": {
+				"tags": ["Admin"],
+				"summary": "Remove a user image",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": { "description": "User image removed" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			}
+		},
+		"/api/admin/users/{id}/role": {
+			"patch": {
+				"tags": ["Admin"],
+				"summary": "Change a user role",
+				"description": "Self-change and removal of the last active administrator are rejected.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["role"],
+								"properties": {
+									"role": { "$ref": "#/components/schemas/Role" }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Role updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AdminUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/users/{id}/status": {
+			"patch": {
+				"tags": ["Admin"],
+				"summary": "Activate or block a user",
+				"description": "Self-change is rejected. Blocking bumps tokenVersion and revokes sessions.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["status"],
+								"properties": {
+									"status": {
+										"type": "string",
+										"enum": ["ACTIVE", "BLOCKED"]
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Status updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AdminUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/users/{id}/reset-password": {
+			"post": {
+				"tags": ["Admin"],
+				"summary": "Reset a user password",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"responses": {
+					"200": {
+						"description": "Temporary password generated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "object",
+													"required": ["temporaryPassword"],
+													"properties": {
+														"temporaryPassword": { "type": "string" }
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/users/{id}/terminate-sessions": {
+			"post": {
+				"tags": ["Admin"],
+				"summary": "Terminate all sessions for a user",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"responses": {
+					"200": { "description": "Sessions terminated" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/users/{id}": {
+			"patch": {
+				"tags": ["Admin"],
+				"summary": "Update a user",
+				"description": "Updates name, email, password, role or status. Self role/status changes and removal of the last active administrator are rejected. Email and password changes revoke sessions.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"minProperties": 1,
+								"properties": {
+									"name": { "type": "string", "minLength": 2, "maxLength": 80 },
+									"email": {
+										"type": "string",
+										"format": "email",
+										"maxLength": 254
+									},
+									"password": {
+										"type": "string",
+										"format": "password",
+										"minLength": 8,
+										"maxLength": 128
+									},
+									"role": {
+										"type": "string",
+										"enum": ["CITIZEN", "ADMIN", "PERSONNEL"]
+									},
+									"status": { "type": "string", "enum": ["ACTIVE", "BLOCKED"] }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "User updated",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AdminUser" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" },
+					"409": { "$ref": "#/components/responses/Conflict" }
+				}
+			},
+			"delete": {
+				"tags": ["Admin"],
+				"summary": "Soft-delete a user",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"responses": {
+					"200": { "description": "User soft-deleted" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/analytics": {
+			"get": {
+				"tags": ["Admin"],
+				"summary": "Get platform analytics",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{
+						"name": "days",
+						"in": "query",
+						"required": false,
+						"schema": { "type": "integer", "enum": [7, 30, 90], "default": 30 }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Platform analytics",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/AdminAnalytics"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			}
+		},
+		"/api/admin/activity": {
+			"get": {
+				"tags": ["Admin"],
+				"summary": "List administrative actions",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{ "$ref": "#/components/parameters/Page" },
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100,
+							"default": 20
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated admin action log",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/AdminActionLogItem"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			}
+		},
+		"/api/admin/moderation/flags": {
+			"get": {
+				"tags": ["Admin"],
+				"summary": "List moderation flags",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{
+						"name": "status",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string",
+							"enum": ["PENDING", "RESOLVED", "DISMISSED"]
+						}
+					},
+					{ "$ref": "#/components/parameters/Page" },
+					{ "$ref": "#/components/parameters/Limit" }
+				],
+				"responses": {
+					"200": {
+						"description": "Paginated moderation flag list",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/ModerationFlagView"
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			},
+			"post": {
+				"tags": ["Admin"],
+				"summary": "Report an issue for moderation",
+				"description": "Available to any authenticated user, not only administrators.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["issueId", "reason"],
+								"properties": {
+									"issueId": { "type": "string", "format": "uuid" },
+									"reason": {
+										"type": "string",
+										"minLength": 5,
+										"maxLength": 500
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Moderation flag created",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ModerationFlagRecord"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"404": { "$ref": "#/components/responses/NotFound" },
+					"409": { "$ref": "#/components/responses/Conflict" }
+				}
+			}
+		},
+		"/api/admin/moderation/flags/{id}": {
+			"patch": {
+				"tags": ["Admin"],
+				"summary": "Resolve a moderation flag",
+				"description": "HIDE and APPROVE toggle issue visibility and invalidate public caches.",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [{ "$ref": "#/components/parameters/Id" }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["status"],
+								"properties": {
+									"status": {
+										"type": "string",
+										"enum": ["PENDING", "RESOLVED", "DISMISSED"]
+									},
+									"action": {
+										"type": "string",
+										"enum": ["NONE", "HIDE", "APPROVE"],
+										"default": "NONE"
+									},
+									"note": {
+										"type": "string",
+										"maxLength": 300,
+										"nullable": true
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Moderation flag resolved",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ModerationFlagRecord"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" }
+				}
+			}
+		},
+		"/api/admin/settings": {
+			"get": {
+				"tags": ["Admin"],
+				"summary": "List application settings",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Application settings",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "array",
+													"items": { "$ref": "#/components/schemas/AppSetting" }
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			},
+			"put": {
+				"tags": ["Admin"],
+				"summary": "Upsert an application setting",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["key", "value"],
+								"properties": {
+									"key": {
+										"type": "string",
+										"minLength": 2,
+										"maxLength": 60,
+										"pattern": "^[a-z][a-z0-9_.-]*$"
+									},
+									"value": { "type": "string", "maxLength": 2000 }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Setting saved",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": { "$ref": "#/components/schemas/AppSetting" }
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" }
+				}
+			}
+		},
+		"/api/ai/capabilities": {
+			"get": {
+				"tags": ["AI"],
+				"summary": "List available AI capabilities and usage",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "AI capabilities",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/AICapabilities"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/search": {
+			"get": {
+				"tags": ["AI"],
+				"summary": "Semantic issue search",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"parameters": [
+					{
+						"name": "q",
+						"in": "query",
+						"required": true,
+						"schema": { "type": "string", "minLength": 2, "maxLength": 120 }
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 20,
+							"default": 8
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Search results with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "object",
+													"required": ["query", "results", "attribution"],
+													"properties": {
+														"query": { "type": "string" },
+														"results": {
+															"type": "array",
+															"items": {
+																"$ref": "#/components/schemas/SimilarIssue"
+															}
+														},
+														"attribution": {
+															"$ref": "#/components/schemas/AIAttribution"
+														}
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/categorize": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Suggest an issue category",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/TextIssueRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Category suggestion with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"allOf": [
+														{
+															"$ref": "#/components/schemas/CategorySuggestion"
+														},
+														{
+															"type": "object",
+															"properties": {
+																"attribution": {
+																	"$ref": "#/components/schemas/AIAttribution"
+																}
+															}
+														}
+													]
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/prioritize": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Suggest an issue priority",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/IssueContextRequest" }
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Priority suggestion with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"allOf": [
+														{
+															"$ref": "#/components/schemas/PrioritySuggestion"
+														},
+														{
+															"type": "object",
+															"properties": {
+																"attribution": {
+																	"$ref": "#/components/schemas/AIAttribution"
+																}
+															}
+														}
+													]
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/summarize": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Summarize issue text or an existing issue",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"properties": {
+									"issueId": { "type": "string", "format": "uuid" },
+									"text": {
+										"type": "string",
+										"minLength": 10,
+										"maxLength": 10000
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Summary with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"allOf": [
+														{
+															"$ref": "#/components/schemas/SummarySuggestion"
+														},
+														{
+															"type": "object",
+															"properties": {
+																"attribution": {
+																	"$ref": "#/components/schemas/AIAttribution"
+																}
+															}
+														}
+													]
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"404": { "$ref": "#/components/responses/NotFound" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/duplicates": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Find duplicate issues",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["title", "description"],
+								"properties": {
+									"title": {
+										"type": "string",
+										"minLength": 3,
+										"maxLength": 150
+									},
+									"description": {
+										"type": "string",
+										"minLength": 10,
+										"maxLength": 5000
+									},
+									"excludeId": { "type": "string", "format": "uuid" },
+									"limit": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 10,
+										"default": 5
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Duplicate candidates with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "object",
+													"required": ["matches", "attribution"],
+													"properties": {
+														"matches": {
+															"type": "array",
+															"items": {
+																"$ref": "#/components/schemas/SimilarIssue"
+															}
+														},
+														"attribution": {
+															"$ref": "#/components/schemas/AIAttribution"
+														}
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/recommend-assignee": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Recommend personnel for an issue",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["issueId"],
+								"properties": {
+									"issueId": { "type": "string", "format": "uuid" }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Assignee recommendations with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "object",
+													"required": [
+														"issueId",
+														"recommendations",
+														"attribution"
+													],
+													"properties": {
+														"issueId": { "type": "string", "format": "uuid" },
+														"recommendations": {
+															"type": "array",
+															"items": {
+																"$ref": "#/components/schemas/AssigneeRecommendation"
+															}
+														},
+														"attribution": {
+															"$ref": "#/components/schemas/AIAttribution"
+														}
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"403": { "$ref": "#/components/responses/Forbidden" },
+					"404": { "$ref": "#/components/responses/NotFound" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		},
+		"/api/ai/triage": {
+			"post": {
+				"tags": ["AI"],
+				"summary": "Produce a complete triage suggestion",
+				"security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["title", "description"],
+								"properties": {
+									"title": {
+										"type": "string",
+										"minLength": 3,
+										"maxLength": 150
+									},
+									"description": {
+										"type": "string",
+										"minLength": 10,
+										"maxLength": 5000
+									},
+									"category": { "$ref": "#/components/schemas/IssueCategory" },
+									"location": {
+										"type": "string",
+										"minLength": 3,
+										"maxLength": 200
+									},
+									"issueId": { "type": "string", "format": "uuid" }
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Triage suggestion with attribution",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{ "$ref": "#/components/schemas/SuccessEnvelope" },
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"allOf": [
+														{ "$ref": "#/components/schemas/TriageSuggestion" },
+														{
+															"type": "object",
+															"properties": {
+																"attribution": {
+																	"$ref": "#/components/schemas/AIAttribution"
+																}
+															}
+														}
+													]
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/BadRequest" },
+					"401": { "$ref": "#/components/responses/Unauthorized" },
+					"429": { "$ref": "#/components/responses/RateLimited" }
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "cp_access_token"
+			},
+			"refreshCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "cp_refresh_token"
+			},
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT"
+			}
+		},
+		"headers": {
+			"Location": {
+				"description": "Redirect target",
+				"schema": { "type": "string", "format": "uri-reference" }
+			},
+			"SetCookie": {
+				"description": "HTTP-only access and/or refresh token cookies",
+				"schema": { "type": "string" }
+			}
+		},
+		"parameters": {
+			"Id": {
+				"name": "id",
+				"in": "path",
+				"required": true,
+				"schema": { "type": "string", "format": "uuid" }
+			},
+			"Page": {
+				"name": "page",
+				"in": "query",
+				"required": false,
+				"schema": { "type": "integer", "minimum": 1, "default": 1 }
+			},
+			"Limit": {
+				"name": "limit",
+				"in": "query",
+				"required": false,
+				"schema": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 100,
+					"default": 10
+				}
+			},
+			"Search": {
+				"name": "search",
+				"in": "query",
+				"required": false,
+				"schema": { "type": "string", "maxLength": 200 }
+			},
+			"Category": {
+				"name": "category",
+				"in": "query",
+				"required": false,
+				"schema": { "$ref": "#/components/schemas/IssueCategory" }
+			},
+			"Priority": {
+				"name": "priority",
+				"in": "query",
+				"required": false,
+				"schema": { "$ref": "#/components/schemas/IssuePriority" }
+			},
+			"IssueStatus": {
+				"name": "status",
+				"in": "query",
+				"required": false,
+				"schema": { "$ref": "#/components/schemas/IssueStatus" }
+			},
+			"Sort": {
+				"name": "sort",
+				"in": "query",
+				"required": false,
+				"schema": {
+					"type": "string",
+					"enum": ["newest", "oldest", "updated", "priority", "title"],
+					"default": "newest"
+				}
+			},
+			"Role": {
+				"name": "role",
+				"in": "query",
+				"required": false,
+				"schema": { "$ref": "#/components/schemas/Role" }
+			},
+			"UserStatusParam": {
+				"name": "status",
+				"in": "query",
+				"required": false,
+				"schema": { "$ref": "#/components/schemas/UserStatus" }
+			}
+		},
+		"requestBodies": {
+			"ImageUpload": {
+				"required": true,
+				"content": {
+					"multipart/form-data": {
+						"schema": {
+							"type": "object",
+							"required": ["image"],
+							"properties": {
+								"image": {
+									"type": "string",
+									"format": "binary",
+									"description": "JPEG, PNG, WebP or GIF up to 5 MB"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"responses": {
+			"BadRequest": {
+				"description": "Validation or business-rule failure",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"Unauthorized": {
+				"description": "Authentication required or invalid",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"Forbidden": {
+				"description": "Authenticated but not allowed",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"NotFound": {
+				"description": "Resource not found",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"Conflict": {
+				"description": "Resource conflict",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"Locked": {
+				"description": "Account temporarily locked after repeated failures",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"RateLimited": {
+				"description": "Too many requests",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			},
+			"ServiceUnavailable": {
+				"description": "Required external service unavailable",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/ErrorEnvelope" }
+					}
+				}
+			}
+		},
+		"schemas": {
+			"SuccessEnvelope": {
+				"type": "object",
+				"required": ["success", "statusCode", "message"],
+				"properties": {
+					"success": { "type": "boolean", "enum": [true] },
+					"statusCode": { "type": "integer" },
+					"message": { "type": "string" },
+					"data": { "nullable": true },
+					"meta": { "$ref": "#/components/schemas/PaginationMeta" }
+				}
+			},
+			"ErrorEnvelope": {
+				"type": "object",
+				"required": ["success", "statusCode", "message"],
+				"properties": {
+					"success": { "type": "boolean", "enum": [false] },
+					"statusCode": { "type": "integer" },
+					"message": { "type": "string" },
+					"errors": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/ValidationError" }
+					}
+				}
+			},
+			"ValidationError": {
+				"type": "object",
+				"required": ["field", "message"],
+				"properties": {
+					"field": { "type": "string" },
+					"message": { "type": "string" }
+				}
+			},
+			"PaginationMeta": {
+				"type": "object",
+				"required": ["page", "limit", "total", "totalPages"],
+				"properties": {
+					"page": { "type": "integer" },
+					"limit": { "type": "integer" },
+					"total": { "type": "integer" },
+					"totalPages": { "type": "integer" }
+				}
+			},
+			"Role": {
+				"type": "string",
+				"enum": ["CITIZEN", "ADMIN", "PERSONNEL"]
+			},
+			"UserStatus": {
+				"type": "string",
+				"enum": ["ACTIVE", "BLOCKED", "DELETED"]
+			},
+			"StrongPassword": {
+				"type": "string",
+				"minLength": 8,
+				"maxLength": 128,
+				"description": "Must contain a letter and a number and fit within bcrypt's 72-byte limit"
+			},
+			"Email": {
+				"type": "string",
+				"format": "email",
+				"maxLength": 254
+			},
+			"EmailRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["email"],
+				"properties": { "email": { "$ref": "#/components/schemas/Email" } }
+			},
+			"RegisterRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["name", "email", "password"],
+				"properties": {
+					"name": { "type": "string", "minLength": 2, "maxLength": 80 },
+					"email": { "$ref": "#/components/schemas/Email" },
+					"password": { "$ref": "#/components/schemas/StrongPassword" }
+				}
+			},
+			"VerifyEmailRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["email", "otp"],
+				"properties": {
+					"email": { "$ref": "#/components/schemas/Email" },
+					"otp": { "type": "string", "pattern": "^\\d{6}$" }
+				}
+			},
+			"ResetPasswordRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["email", "otp", "newPassword"],
+				"properties": {
+					"email": { "$ref": "#/components/schemas/Email" },
+					"otp": { "type": "string", "pattern": "^\\d{6}$" },
+					"newPassword": { "$ref": "#/components/schemas/StrongPassword" }
+				}
+			},
+			"LoginRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["email", "password"],
+				"properties": {
+					"email": { "$ref": "#/components/schemas/Email" },
+					"password": { "type": "string", "minLength": 1, "maxLength": 128 }
+				}
+			},
+			"RegistrationOtp": {
+				"type": "object",
+				"required": ["expiresIn", "expiresAt", "sessionExpiresIn"],
+				"properties": {
+					"expiresIn": { "type": "integer" },
+					"expiresAt": { "type": "string", "format": "date-time" },
+					"sessionExpiresIn": { "type": "integer" }
+				}
+			},
+			"PasswordResetOtp": {
+				"type": "object",
+				"required": ["expiresIn", "expiresAt"],
+				"properties": {
+					"expiresIn": { "type": "integer" },
+					"expiresAt": { "type": "string", "format": "date-time" }
+				}
+			},
+			"GoogleStatus": {
+				"type": "object",
+				"required": ["enabled", "idTokenEnabled", "redirectEnabled"],
+				"properties": {
+					"enabled": { "type": "boolean" },
+					"idTokenEnabled": { "type": "boolean" },
+					"redirectEnabled": { "type": "boolean" }
+				}
+			},
+			"GoogleIdTokenRequest": {
+				"type": "object",
+				"required": ["idToken"],
+				"additionalProperties": false,
+				"properties": {
+					"idToken": {
+						"type": "string",
+						"minLength": 1,
+						"maxLength": 10000
+					}
+				}
+			},
+			"PublicUser": {
+				"type": "object",
+				"required": [
+					"id",
+					"name",
+					"email",
+					"imageUrl",
+					"role",
+					"status",
+					"emailVerified",
+					"lastLoginAt",
+					"createdAt",
+					"updatedAt"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"name": { "type": "string" },
+					"email": { "type": "string", "format": "email" },
+					"imageUrl": { "type": "string", "format": "uri", "nullable": true },
+					"role": { "$ref": "#/components/schemas/Role" },
+					"status": { "$ref": "#/components/schemas/UserStatus" },
+					"emailVerified": { "type": "boolean" },
+					"lastLoginAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"createdAt": { "type": "string", "format": "date-time" },
+					"updatedAt": { "type": "string", "format": "date-time" }
+				}
+			},
+			"AdminUser": {
+				"type": "object",
+				"required": [
+					"id",
+					"name",
+					"email",
+					"imageUrl",
+					"role",
+					"status",
+					"emailVerified",
+					"lastLoginAt",
+					"createdAt",
+					"_count"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"name": { "type": "string" },
+					"email": { "type": "string", "format": "email" },
+					"imageUrl": { "type": "string", "format": "uri", "nullable": true },
+					"role": { "$ref": "#/components/schemas/Role" },
+					"status": { "$ref": "#/components/schemas/UserStatus" },
+					"emailVerified": { "type": "boolean" },
+					"lastLoginAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"createdAt": { "type": "string", "format": "date-time" },
+					"updatedAt": { "type": "string", "format": "date-time" },
+					"_count": {
+						"type": "object",
+						"required": ["reportedIssues", "assignedIssues"],
+						"properties": {
+							"reportedIssues": { "type": "integer" },
+							"assignedIssues": { "type": "integer" }
+						}
+					}
+				}
+			},
+			"IssueCategory": {
+				"type": "string",
+				"enum": ["ROADS", "STREETLIGHTS", "WATER", "WASTE", "OTHER"]
+			},
+			"IssuePriority": {
+				"type": "string",
+				"enum": ["LOW", "MEDIUM", "HIGH"]
+			},
+			"IssueStatus": {
+				"type": "string",
+				"enum": ["PENDING", "IN_PROGRESS", "RESOLVED"]
+			},
+			"ModerationStatus": {
+				"type": "string",
+				"enum": ["VISIBLE", "HIDDEN"]
+			},
+			"FlagStatus": {
+				"type": "string",
+				"enum": ["PENDING", "RESOLVED", "DISMISSED"]
+			},
+			"FlagAction": {
+				"type": "string",
+				"enum": ["NONE", "HIDE", "APPROVE"]
+			},
+			"IssuePerson": {
+				"type": "object",
+				"required": ["id", "name", "imageUrl"],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"name": { "type": "string" },
+					"imageUrl": { "type": "string", "format": "uri", "nullable": true }
+				}
+			},
+			"PublicIssue": {
+				"type": "object",
+				"required": [
+					"id",
+					"title",
+					"description",
+					"category",
+					"location",
+					"imageUrl",
+					"priority",
+					"status",
+					"resolutionNote",
+					"resolvedAt",
+					"createdAt",
+					"updatedAt",
+					"reporter",
+					"assignee"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"title": { "type": "string" },
+					"description": { "type": "string" },
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"location": { "type": "string" },
+					"imageUrl": { "type": "string", "format": "uri", "nullable": true },
+					"priority": { "$ref": "#/components/schemas/IssuePriority" },
+					"status": { "$ref": "#/components/schemas/IssueStatus" },
+					"resolutionNote": { "type": "string", "nullable": true },
+					"resolvedAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"createdAt": { "type": "string", "format": "date-time" },
+					"updatedAt": { "type": "string", "format": "date-time" },
+					"reporter": { "$ref": "#/components/schemas/IssuePerson" },
+					"assignee": {
+						"allOf": [{ "$ref": "#/components/schemas/IssuePerson" }],
+						"nullable": true
+					}
+				}
+			},
+			"CreateIssueRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["title", "description", "category", "location"],
+				"properties": {
+					"title": { "type": "string", "minLength": 3, "maxLength": 150 },
+					"description": {
+						"type": "string",
+						"minLength": 10,
+						"maxLength": 5000
+					},
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"location": { "type": "string", "minLength": 3, "maxLength": 200 },
+					"imageUrl": { "type": "string", "format": "uri", "nullable": true },
+					"priority": {
+						"$ref": "#/components/schemas/IssuePriority",
+						"default": "MEDIUM"
+					}
+				}
+			},
+			"UpdateIssueRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"minProperties": 1,
+				"properties": {
+					"title": { "type": "string", "minLength": 3, "maxLength": 150 },
+					"description": {
+						"type": "string",
+						"minLength": 10,
+						"maxLength": 5000
+					},
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"location": { "type": "string", "minLength": 3, "maxLength": 200 }
+				}
+			},
+			"UpdateStatusRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["status"],
+				"properties": {
+					"status": { "$ref": "#/components/schemas/IssueStatus" },
+					"resolutionNote": {
+						"type": "string",
+						"maxLength": 2000,
+						"nullable": true
+					}
+				}
+			},
+			"IssueHistoryItem": {
+				"type": "object",
+				"required": ["id", "newStatus", "createdAt", "changedBy"],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"oldStatus": {
+						"allOf": [{ "$ref": "#/components/schemas/IssueStatus" }],
+						"nullable": true
+					},
+					"newStatus": { "$ref": "#/components/schemas/IssueStatus" },
+					"note": { "type": "string", "nullable": true },
+					"createdAt": { "type": "string", "format": "date-time" },
+					"changedBy": {
+						"type": "object",
+						"required": ["id", "name", "role"],
+						"properties": {
+							"id": { "type": "string", "format": "uuid" },
+							"name": { "type": "string" },
+							"role": { "$ref": "#/components/schemas/Role" }
+						}
+					}
+				}
+			},
+			"StatusDistribution": {
+				"type": "object",
+				"required": ["PENDING", "IN_PROGRESS", "RESOLVED"],
+				"properties": {
+					"PENDING": { "type": "integer" },
+					"IN_PROGRESS": { "type": "integer" },
+					"RESOLVED": { "type": "integer" }
+				}
+			},
+			"PublicStats": {
+				"type": "object",
+				"required": [
+					"total",
+					"pending",
+					"inProgress",
+					"resolved",
+					"statusDistribution"
+				],
+				"properties": {
+					"total": { "type": "integer" },
+					"pending": { "type": "integer" },
+					"inProgress": { "type": "integer" },
+					"resolved": { "type": "integer" },
+					"statusDistribution": {
+						"$ref": "#/components/schemas/StatusDistribution"
+					}
+				}
+			},
+			"DashboardStats": {
+				"type": "object",
+				"required": [
+					"scope",
+					"total",
+					"pending",
+					"inProgress",
+					"resolved",
+					"highPriority",
+					"statusDistribution",
+					"recentIssues"
+				],
+				"properties": {
+					"scope": { "type": "string", "enum": ["ALL", "ASSIGNED", "OWN"] },
+					"total": { "type": "integer" },
+					"pending": { "type": "integer" },
+					"inProgress": { "type": "integer" },
+					"resolved": { "type": "integer" },
+					"highPriority": { "type": "integer" },
+					"statusDistribution": {
+						"$ref": "#/components/schemas/StatusDistribution"
+					},
+					"recentIssues": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/PublicIssue" }
+					}
+				}
+			},
+			"AdminActionLogItem": {
+				"type": "object",
+				"required": [
+					"id",
+					"action",
+					"targetType",
+					"metadata",
+					"createdAt",
+					"actor"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"action": { "type": "string" },
+					"targetType": { "type": "string" },
+					"targetId": { "type": "string", "nullable": true },
+					"metadata": {},
+					"createdAt": { "type": "string", "format": "date-time" },
+					"actor": {
+						"type": "object",
+						"required": ["id", "name", "email", "role"],
+						"properties": {
+							"id": { "type": "string", "format": "uuid" },
+							"name": { "type": "string" },
+							"email": { "type": "string", "format": "email" },
+							"role": { "$ref": "#/components/schemas/Role" }
+						}
+					}
+				}
+			},
+			"ModerationFlagRecord": {
+				"type": "object",
+				"required": [
+					"id",
+					"issueId",
+					"reporterId",
+					"reason",
+					"status",
+					"action",
+					"resolutionNote",
+					"resolvedById",
+					"resolvedAt",
+					"createdAt"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"issueId": { "type": "string", "format": "uuid" },
+					"reporterId": { "type": "string", "format": "uuid" },
+					"reason": { "type": "string" },
+					"status": { "$ref": "#/components/schemas/FlagStatus" },
+					"action": { "$ref": "#/components/schemas/FlagAction" },
+					"resolutionNote": { "type": "string", "nullable": true },
+					"resolvedById": {
+						"type": "string",
+						"format": "uuid",
+						"nullable": true
+					},
+					"resolvedAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"createdAt": { "type": "string", "format": "date-time" }
+				}
+			},
+			"ModerationFlagView": {
+				"type": "object",
+				"required": [
+					"id",
+					"reason",
+					"status",
+					"action",
+					"resolutionNote",
+					"createdAt",
+					"resolvedAt",
+					"issue",
+					"reporter",
+					"resolvedBy"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"reason": { "type": "string" },
+					"status": { "$ref": "#/components/schemas/FlagStatus" },
+					"action": { "$ref": "#/components/schemas/FlagAction" },
+					"resolutionNote": { "type": "string", "nullable": true },
+					"createdAt": { "type": "string", "format": "date-time" },
+					"resolvedAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"issue": {
+						"type": "object",
+						"required": [
+							"id",
+							"title",
+							"category",
+							"status",
+							"moderationStatus"
+						],
+						"properties": {
+							"id": { "type": "string", "format": "uuid" },
+							"title": { "type": "string" },
+							"category": { "$ref": "#/components/schemas/IssueCategory" },
+							"status": { "$ref": "#/components/schemas/IssueStatus" },
+							"moderationStatus": {
+								"$ref": "#/components/schemas/ModerationStatus"
+							}
+						}
+					},
+					"reporter": {
+						"type": "object",
+						"required": ["id", "name", "email"],
+						"properties": {
+							"id": { "type": "string", "format": "uuid" },
+							"name": { "type": "string" },
+							"email": { "type": "string", "format": "email" }
+						}
+					},
+					"resolvedBy": {
+						"type": "object",
+						"nullable": true,
+						"required": ["id", "name"],
+						"properties": {
+							"id": { "type": "string", "format": "uuid" },
+							"name": { "type": "string" }
+						}
+					}
+				}
+			},
+			"AppSetting": {
+				"type": "object",
+				"required": ["key", "value", "updatedAt"],
+				"properties": {
+					"key": { "type": "string" },
+					"value": { "type": "string" },
+					"updatedAt": { "type": "string", "format": "date-time" }
+				}
+			},
+			"AdminAnalytics": {
+				"type": "object",
+				"required": [
+					"days",
+					"totalIssues",
+					"resolved",
+					"pending",
+					"highPriority",
+					"resolutionRate",
+					"averageResolutionHours",
+					"newUsers",
+					"issuesByDay",
+					"usersByDay",
+					"categories"
+				],
+				"properties": {
+					"days": { "type": "integer", "enum": [7, 30, 90] },
+					"totalIssues": { "type": "integer" },
+					"resolved": { "type": "integer" },
+					"pending": { "type": "integer" },
+					"highPriority": { "type": "integer" },
+					"resolutionRate": { "type": "number", "format": "double" },
+					"averageResolutionHours": { "type": "number", "format": "double" },
+					"newUsers": { "type": "integer" },
+					"issuesByDay": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/DayCount" }
+					},
+					"usersByDay": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/DayCount" }
+					},
+					"categories": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["category", "count"],
+							"properties": {
+								"category": { "$ref": "#/components/schemas/IssueCategory" },
+								"count": { "type": "integer" }
+							}
+						}
+					}
+				}
+			},
+			"DayCount": {
+				"type": "object",
+				"required": ["date", "count"],
+				"properties": {
+					"date": { "type": "string", "format": "date" },
+					"count": { "type": "integer" }
+				}
+			},
+			"AIUsage": {
+				"type": "object",
+				"required": ["usedToday", "limit", "remaining"],
+				"properties": {
+					"usedToday": { "type": "integer" },
+					"limit": { "type": "integer" },
+					"remaining": { "type": "integer" }
+				}
+			},
+			"AIAttribution": {
+				"type": "object",
+				"required": ["provider", "degraded", "cached", "usage"],
+				"properties": {
+					"provider": {
+						"type": "string",
+						"enum": ["local", "openai", "gemini", "local-fallback"]
+					},
+					"degraded": { "type": "boolean" },
+					"reason": { "type": "string" },
+					"cached": { "type": "boolean" },
+					"usage": { "$ref": "#/components/schemas/AIUsage" }
+				}
+			},
+			"Capability": {
+				"type": "object",
+				"required": ["task", "name", "description", "advanced"],
+				"properties": {
+					"task": {
+						"type": "string",
+						"enum": [
+							"categorize",
+							"prioritize",
+							"summarize",
+							"duplicates",
+							"recommend-assignee",
+							"search",
+							"triage"
+						]
+					},
+					"name": { "type": "string" },
+					"description": { "type": "string" },
+					"advanced": { "type": "boolean" }
+				}
+			},
+			"AICapabilities": {
+				"type": "object",
+				"required": ["provider", "capabilities", "usage", "cachingEnabled"],
+				"properties": {
+					"provider": { "type": "string" },
+					"capabilities": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/Capability" }
+					},
+					"usage": { "$ref": "#/components/schemas/AIUsage" },
+					"cachingEnabled": { "type": "boolean" }
+				}
+			},
+			"TextIssueRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["title", "description"],
+				"properties": {
+					"title": { "type": "string", "minLength": 3, "maxLength": 150 },
+					"description": {
+						"type": "string",
+						"minLength": 10,
+						"maxLength": 5000
+					}
+				}
+			},
+			"IssueContextRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["title", "description"],
+				"properties": {
+					"title": { "type": "string", "minLength": 3, "maxLength": 150 },
+					"description": {
+						"type": "string",
+						"minLength": 10,
+						"maxLength": 5000
+					},
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"location": { "type": "string", "minLength": 3, "maxLength": 200 }
+				}
+			},
+			"CategorySuggestion": {
+				"type": "object",
+				"required": [
+					"category",
+					"confidence",
+					"alternatives",
+					"keywords",
+					"rationale"
+				],
+				"properties": {
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"confidence": { "type": "number", "format": "double" },
+					"alternatives": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["category", "score"],
+							"properties": {
+								"category": { "$ref": "#/components/schemas/IssueCategory" },
+								"score": { "type": "number", "format": "double" }
+							}
+						}
+					},
+					"keywords": {
+						"type": "array",
+						"items": { "type": "string" }
+					},
+					"rationale": { "type": "string" }
+				}
+			},
+			"PrioritySuggestion": {
+				"type": "object",
+				"required": ["priority", "urgencyScore", "confidence", "reasons"],
+				"properties": {
+					"priority": { "$ref": "#/components/schemas/IssuePriority" },
+					"urgencyScore": { "type": "number", "format": "double" },
+					"confidence": { "type": "number", "format": "double" },
+					"reasons": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				}
+			},
+			"SummarySuggestion": {
+				"type": "object",
+				"required": ["summary", "keyPoints"],
+				"properties": {
+					"summary": { "type": "string" },
+					"keyPoints": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				}
+			},
+			"SimilarIssue": {
+				"type": "object",
+				"required": [
+					"id",
+					"title",
+					"category",
+					"status",
+					"location",
+					"similarity"
+				],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"title": { "type": "string" },
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"status": { "$ref": "#/components/schemas/IssueStatus" },
+					"location": { "type": "string" },
+					"similarity": { "type": "number", "format": "double" }
+				}
+			},
+			"AssigneeRecommendation": {
+				"type": "object",
+				"required": ["id", "name", "score", "reason", "activeCount"],
+				"properties": {
+					"id": { "type": "string", "format": "uuid" },
+					"name": { "type": "string" },
+					"score": { "type": "number", "format": "double" },
+					"reason": { "type": "string" },
+					"activeCount": { "type": "integer" }
+				}
+			},
+			"SuggestedAction": {
+				"type": "object",
+				"required": ["type", "value", "reason"],
+				"properties": {
+					"type": {
+						"type": "string",
+						"enum": ["SET_CATEGORY", "SET_PRIORITY", "ASSIGN", "ADD_NOTE"]
+					},
+					"value": { "type": "string" },
+					"reason": { "type": "string" }
+				}
+			},
+			"TriageSuggestion": {
+				"type": "object",
+				"required": [
+					"category",
+					"priority",
+					"summary",
+					"duplicates",
+					"actions",
+					"confidence",
+					"rationale"
+				],
+				"properties": {
+					"category": { "$ref": "#/components/schemas/IssueCategory" },
+					"priority": { "$ref": "#/components/schemas/IssuePriority" },
+					"summary": { "type": "string" },
+					"duplicates": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/SimilarIssue" }
+					},
+					"actions": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/SuggestedAction" }
+					},
+					"confidence": { "type": "number", "format": "double" },
+					"rationale": { "type": "string" }
+				}
+			}
+		}
+	}
+}

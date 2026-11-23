@@ -73,6 +73,14 @@ export const resetPasswordSchema = z.strictObject({
 	newPassword: strongPasswordSchema,
 });
 
+export const googleIdTokenSchema = z.strictObject({
+	idToken: z
+		.string()
+		.trim()
+		.min(1, "Google sign-in token is required.")
+		.max(10000, "Google sign-in token is too long."),
+});
+
 export const googleCallbackQuerySchema = z
 	.object({
 		code: z.string().min(1).max(2048).optional(),
@@ -91,4 +99,5 @@ export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type GoogleIdTokenInput = z.infer<typeof googleIdTokenSchema>;
 export type GoogleCallbackQuery = z.infer<typeof googleCallbackQuerySchema>;

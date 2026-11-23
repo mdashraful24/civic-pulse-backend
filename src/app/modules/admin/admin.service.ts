@@ -15,9 +15,11 @@ import type {
 	AppSettingInput,
 	ChangeRoleInput,
 	ChangeStatusInput,
+	CreateAdminUserInput,
 	CreateFlagInput,
 	ModerationFlagsQuery,
 	ResolveFlagInput,
+	UpdateAdminUserInput,
 } from "./admin.validation";
 
 const ADMIN_USER_SELECT = {
@@ -188,6 +190,145 @@ const listUsers = async (query: AdminUsersQuery) => {
 			totalPages: Math.ceil(total / query.limit) || 0,
 		},
 	};
+};
+
+const isEmailConflict = (error: unknown) =>
+	typeof error === "object" &&
+	error !== null &&
+	"code" in error &&
+	(error as { code?: unknown }).code === "P2002";
+
+const createUser = async (actorId: string, input: CreateAdminUserInput) => {
+	const existing = await prisma.user.findUnique({
+		where: { email: input.email },
+		select: { id: true },
+	});
+
+	if (existing) {
+		throw AppError.conflict("A user with that email already exists.");
+	}
+
+	const passwordHash = await hashPassword(input.password);
+
+	let created: Prisma.UserGetPayload<{ select: typeof ADMIN_USER_SELECT }>;
+
+	try {
+		created = await prisma.user.create({
+			data: {
+				name: input.name,
+				email: input.email,
+				passwordHash,
+				role: input.role,
+				status: input.status,
+				emailVerified: true,
+				emailVerifiedAt: new Date(),
+			},
+			select: ADMIN_USER_SELECT,
+		});
+	} catch (error) {
+		if (isEmailConflict(error)) {
+			throw AppError.conflict("A user with that email already exists.");
+		}
+		throw error;
+	}
+
+	await logAction(actorId, "USER_CREATED", "USER", created.id, {
+		role: created.role,
+		status: created.status,
+	});
+	await invalidateIssueCaches();
+
+	return created;
+};
+
+const updateUser = async (
+	actorId: string,
+	id: string,
+	input: UpdateAdminUserInput,
+) => {
+	const target = await prisma.user.findFirst({
+		where: { id, isDeleted: false },
+		select: { id: true, email: true, role: true, status: true },
+	});
+
+	if (!target) {
+		throw AppError.notFound("This user no longer exists.");
+	}
+
+	if (actorId === id && (input.role || input.status)) {
+		throw AppError.badRequest(
+			"You cannot change your own role or status here.",
+		);
+	}
+
+	if (input.role || input.status) {
+		await ensureActiveAdminRemains(target, input.role, input.status);
+	}
+
+	if (input.email && input.email !== target.email) {
+		const duplicate = await prisma.user.findUnique({
+			where: { email: input.email },
+			select: { id: true },
+		});
+
+		if (duplicate && duplicate.id !== id) {
+			throw AppError.conflict("A user with that email already exists.");
+		}
+	}
+
+	const data: Prisma.UserUpdateInput = {};
+	let sessionRevocationReason: string | null = null;
+
+	if (input.name) data.name = input.name;
+	if (input.role) data.role = input.role;
+
+	if (input.email && input.email !== target.email) {
+		data.email = input.email;
+		data.emailVerified = false;
+		data.emailVerifiedAt = null;
+		sessionRevocationReason = "admin-email-updated";
+	}
+
+	if (input.status && input.status !== target.status) {
+		data.status = input.status;
+		sessionRevocationReason =
+			input.status === "BLOCKED" ? "account-blocked" : "account-unblocked";
+	}
+
+	if (input.password) {
+		data.passwordHash = await hashPassword(input.password);
+		sessionRevocationReason = "admin-password-updated";
+	}
+
+	if (sessionRevocationReason) {
+		data.tokenVersion = { increment: 1 };
+	}
+
+	let updated: Prisma.UserGetPayload<{ select: typeof ADMIN_USER_SELECT }>;
+
+	try {
+		updated = await prisma.user.update({
+			where: { id },
+			data,
+			select: ADMIN_USER_SELECT,
+		});
+	} catch (error) {
+		if (isEmailConflict(error)) {
+			throw AppError.conflict("A user with that email already exists.");
+		}
+		throw error;
+	}
+
+	if (sessionRevocationReason) {
+		await revokeSessions(id, sessionRevocationReason);
+	}
+
+	await logAction(actorId, "USER_UPDATED", "USER", id, {
+		fields: Object.keys(input),
+	});
+	await invalidateIssueCaches();
+
+	return updated;
 };
 
 const changeRole = async (
@@ -546,6 +687,8 @@ const updateSetting = async (actorId: string, input: AppSettingInput) => {
 
 export const AdminService = {
 	listUsers,
+	createUser,
+	updateUser,
 	updateUserImage,
 	removeUserImage,
 	changeRole,

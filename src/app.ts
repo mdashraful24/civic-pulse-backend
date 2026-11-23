@@ -16,6 +16,7 @@ import { AdminRoutes } from "./app/modules/admin/admin.route";
 import { AIRoutes } from "./app/modules/ai/ai.route";
 import { AuthRoutes } from "./app/modules/auth/auth.route";
 import { DashboardRoutes } from "./app/modules/dashboard/dashboard.route";
+import { DocsRoutes } from "./app/modules/docs/docs.route";
 import { IssueRoutes } from "./app/modules/issues/issue.route";
 
 const app = express();
@@ -51,6 +52,8 @@ app.get("/health", (_req, res) => {
 		data: { uptime: Math.round(process.uptime()) },
 	});
 });
+
+app.use("/api-docs", DocsRoutes);
 
 app.use(config.api_prefix, apiLimiter);
 app.use(config.api_prefix, mutationLimiter);

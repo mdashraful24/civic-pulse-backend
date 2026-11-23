@@ -18,6 +18,7 @@ import {
 	changePasswordSchema,
 	forgotPasswordSchema,
 	googleCallbackQuerySchema,
+	googleIdTokenSchema,
 	loginSchema,
 	registerSchema,
 	resendOtpSchema,
@@ -28,6 +29,14 @@ import {
 const router = Router();
 
 router.get("/google/status", authLimiter, AuthController.googleStatus);
+
+router.post(
+	"/google",
+	authLimiter,
+	oauthLimiter,
+	validateBody(googleIdTokenSchema),
+	AuthController.googleIdTokenSignIn,
+);
 
 router.get("/google", authLimiter, oauthLimiter, AuthController.googleStart);
 

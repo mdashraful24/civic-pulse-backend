@@ -16,6 +16,7 @@ import {
 	type GoogleProfile,
 	createGoogleAuthorizationUrl,
 	exchangeGoogleCode,
+	verifyGoogleIdToken,
 } from "./google.provider";
 
 const PROVIDER = "GOOGLE";
@@ -214,6 +215,15 @@ export const completeGoogleSignIn = async (
 	}
 
 	const profile = await exchangeGoogleCode(input.code, input.state);
+	const user = await resolveGoogleUser(profile);
+	return createSession(user, ctx);
+};
+
+export const completeGoogleIdTokenSignIn = async (
+	idToken: string,
+	ctx: SessionContext,
+): Promise<AuthResult> => {
+	const profile = await verifyGoogleIdToken(idToken);
 	const user = await resolveGoogleUser(profile);
 	return createSession(user, ctx);
 };

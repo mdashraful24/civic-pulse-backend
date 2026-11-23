@@ -255,14 +255,16 @@ export const assertRuntimeConfig = () => {
 		throw new Error('JOBS_MODE must be one of "inline" or "queue".');
 	}
 
-	const googleValues = [
-		config.google_client_id,
-		config.google_client_secret,
-		config.google_redirect_uri,
-	].filter(Boolean);
-	if (googleValues.length > 0 && googleValues.length !== 3) {
+	if (
+		(config.google_client_secret || config.google_redirect_uri) &&
+		!(
+			config.google_client_id &&
+			config.google_client_secret &&
+			config.google_redirect_uri
+		)
+	) {
 		throw new Error(
-			"GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI must be provided together.",
+			"GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI must be provided together with GOOGLE_CLIENT_ID.",
 		);
 	}
 

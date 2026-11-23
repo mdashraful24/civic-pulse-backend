@@ -13,10 +13,14 @@ import { sanitizeText } from "../../utils/sanitize";
 import { sendResponse } from "../../utils/sendResponse";
 import { AuthService } from "./auth.service";
 import * as GoogleOAuthService from "./auth.oauth.service";
-import { isGoogleConfigured } from "./google.provider";
+import {
+	isGoogleConfigured,
+	isGoogleIdTokenConfigured,
+} from "./google.provider";
 import type {
 	ChangePasswordInput,
 	GoogleCallbackQuery,
+	GoogleIdTokenInput,
 	ForgotPasswordInput,
 	LoginInput,
 	RegisterInput,
@@ -204,7 +208,27 @@ const googleStatus = catchAsync(async (_req, res) => {
 		statusCode: httpStatus.OK,
 		success: true,
 		message: "Google sign-in status retrieved.",
-		data: { enabled: isGoogleConfigured() },
+		data: {
+			enabled: isGoogleIdTokenConfigured() || isGoogleConfigured(),
+			idTokenEnabled: isGoogleIdTokenConfigured(),
+			redirectEnabled: isGoogleConfigured(),
+		},
+	});
+});
+
+const googleIdTokenSignIn = catchAsync(async (req, res) => {
+	const result = await GoogleOAuthService.completeGoogleIdTokenSignIn(
+		(req.body as GoogleIdTokenInput).idToken,
+		sessionContext(req),
+	);
+
+	setAuthCookies(res, result);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "Signed in with Google successfully.",
+		data: result.user,
 	});
 });
 
@@ -252,6 +276,7 @@ export const AuthController = {
 	forgotPassword,
 	resetPassword,
 	googleStatus,
+	googleIdTokenSignIn,
 	googleStart,
 	googleCallback,
 };

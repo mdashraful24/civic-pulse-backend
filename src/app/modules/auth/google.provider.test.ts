@@ -1,3 +1,4 @@
+import { OAuth2Client } from "google-auth-library";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { configMock, redisMock, store } = vi.hoisted(() => {
@@ -28,12 +29,16 @@ const { configMock, redisMock, store } = vi.hoisted(() => {
 
 vi.mock("../../config", () => ({ default: configMock }));
 vi.mock("../../lib/redis", () => ({ redisClient: redisMock }));
+vi.mock("../../logger", () => ({ default: { warn: vi.fn() } }));
 
 import {
 	createGoogleAuthorizationUrl,
 	exchangeGoogleCode,
+	isGoogleIdTokenConfigured,
+	verifyGoogleIdToken,
 } from "./google.provider";
 
+const verifyIdTokenSpy = vi.spyOn(OAuth2Client.prototype, "verifyIdToken");
 const fetchMock = vi.fn();
 const state = "a".repeat(43);
 
@@ -51,6 +56,7 @@ beforeEach(() => {
 		"http://localhost:3100/api/auth/google/callback";
 	redisMock.isOpen = true;
 	fetchMock.mockReset();
+	verifyIdTokenSpy.mockReset();
 	vi.stubGlobal("fetch", fetchMock);
 	vi.clearAllMocks();
 });
@@ -129,6 +135,63 @@ describe("Google OAuth provider", () => {
 		configMock.google_client_secret = "";
 
 		await expect(createGoogleAuthorizationUrl()).rejects.toMatchObject({
+			statusCode: 503,
+		});
+	});
+
+	it("verifies an ID token with only the Google client ID", async () => {
+		configMock.google_client_secret = "";
+		configMock.google_redirect_uri = "";
+		verifyIdTokenSpy.mockResolvedValue({
+			getPayload: () => ({
+				sub: "google-user-2",
+				email: "id-token@example.com",
+				email_verified: true,
+				name: "ID Token User",
+				aud: "client-id",
+			}),
+		} as never);
+
+		expect(isGoogleIdTokenConfigured()).toBe(true);
+		await expect(verifyGoogleIdToken("id-token")).resolves.toMatchObject({
+			sub: "google-user-2",
+			email: "id-token@example.com",
+			email_verified: true,
+		});
+		expect(verifyIdTokenSpy).toHaveBeenCalledWith({
+			idToken: "id-token",
+			audience: "client-id",
+		});
+	});
+
+	it("rejects invalid Google ID tokens", async () => {
+		verifyIdTokenSpy.mockRejectedValue(new Error("invalid token"));
+
+		await expect(verifyGoogleIdToken("bad-token")).rejects.toMatchObject({
+			statusCode: 401,
+		});
+	});
+
+	it("rejects Google ID tokens without a verified email", async () => {
+		verifyIdTokenSpy.mockResolvedValue({
+			getPayload: () => ({
+				sub: "google-user-3",
+				email: "unverified@example.com",
+				email_verified: false,
+				aud: "client-id",
+			}),
+		} as never);
+
+		await expect(verifyGoogleIdToken("id-token")).rejects.toMatchObject({
+			statusCode: 403,
+		});
+	});
+
+	it("fails closed when ID-token sign-in has no client ID", async () => {
+		configMock.google_client_id = "";
+
+		expect(isGoogleIdTokenConfigured()).toBe(false);
+		await expect(verifyGoogleIdToken("id-token")).rejects.toMatchObject({
 			statusCode: 503,
 		});
 	});

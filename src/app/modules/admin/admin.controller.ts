@@ -11,9 +11,11 @@ import type {
 	AppSettingInput,
 	ChangeRoleInput,
 	ChangeStatusInput,
+	CreateAdminUserInput,
 	CreateFlagInput,
 	ModerationFlagsQuery,
 	ResolveFlagInput,
+	UpdateAdminUserInput,
 } from "./admin.validation";
 
 const listUsers = catchAsync(async (req, res) => {
@@ -27,6 +29,35 @@ const listUsers = catchAsync(async (req, res) => {
 		message: "Users retrieved.",
 		data: result.items,
 		meta: result.meta,
+	});
+});
+
+const createUser = catchAsync(async (req, res) => {
+	const user = await AdminService.createUser(
+		currentUser(req).id,
+		req.body as CreateAdminUserInput,
+	);
+
+	sendResponse(res, {
+		statusCode: httpStatus.CREATED,
+		success: true,
+		message: "User created.",
+		data: user,
+	});
+});
+
+const updateUser = catchAsync(async (req, res) => {
+	const user = await AdminService.updateUser(
+		currentUser(req).id,
+		req.params.id,
+		req.body as UpdateAdminUserInput,
+	);
+
+	sendResponse(res, {
+		statusCode: httpStatus.OK,
+		success: true,
+		message: "User updated.",
+		data: user,
 	});
 });
 
@@ -224,6 +255,8 @@ const updateSetting = catchAsync(async (req, res) => {
 
 export const AdminController = {
 	listUsers,
+	createUser,
+	updateUser,
 	updateUserImage,
 	removeUserImage,
 	changeRole,
